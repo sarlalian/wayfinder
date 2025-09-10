@@ -88,7 +88,7 @@ pub struct CommandConfig {
     pub capture_output: bool,
 
     /// List of exit codes considered successful (default: [0])
-    #[serde(default)]
+    #[serde(default = "default_expected_exit_codes")]
     pub expected_exit_codes: Vec<i32>,
 }
 
@@ -98,6 +98,10 @@ fn default_capture_output() -> bool {
 
 fn default_shell() -> String {
     "/bin/bash".to_string()
+}
+
+fn default_expected_exit_codes() -> Vec<i32> {
+    vec![0]
 }
 
 impl Default for CommandConfig {
@@ -111,7 +115,7 @@ impl Default for CommandConfig {
             working_dir: None,
             timeout_seconds: Some(300), // 5 minutes default
             capture_output: true,
-            expected_exit_codes: vec![0], // Success by default
+            expected_exit_codes: default_expected_exit_codes(),
         }
     }
 }

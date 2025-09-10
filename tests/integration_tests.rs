@@ -269,7 +269,7 @@ tasks:
     type: command
     config:
       command: echo
-      args: ["${greeting} ${user_name}! Count: ${count}"]
+      args: ["{{variables.greeting}} {{variables.user_name}}! Count: {{variables.count}}"]
     timeout: 30s
 
 output:
@@ -396,14 +396,14 @@ tasks:
     type: command
     config:
       command: echo
-      args: ["Setting up ${stage}"]
+      args: ["Setting up {{variables.stage}}"]
     timeout: 30s
 
   process:
     type: command
     config:
       command: echo
-      args: ["Processing data for ${stage}"]
+      args: ["Processing data for {{variables.stage}}"]
     depends_on:
       - setup
     timeout: 30s
@@ -412,7 +412,7 @@ tasks:
     type: command
     config:
       command: echo
-      args: ["Validating results for ${stage}"]
+      args: ["Validating results for {{variables.stage}}"]
     depends_on:
       - process
     timeout: 30s
@@ -421,7 +421,7 @@ tasks:
     type: command
     config:
       command: echo
-      args: ["Cleaning up ${stage}"]
+      args: ["Cleaning up {{variables.stage}}"]
     depends_on:
       - validate
     timeout: 30s
@@ -580,14 +580,14 @@ tasks:
     type: command
     config:
       command: echo
-      args: ["Setting up ${environment} environment"]
+      args: ["Setting up {{variables.environment}} environment"]
     timeout: 30s
 
   run_tests:
     type: command
     config:
       command: echo
-      args: ["Running tests in ${environment}"]
+      args: ["Running tests in {{variables.environment}}"]
     depends_on:
       - setup_env
     timeout: 30s
@@ -605,7 +605,7 @@ tasks:
     type: command
     config:
       command: echo
-      args: ["Cleaning up ${environment} environment"]
+      args: ["Cleaning up {{variables.environment}} environment"]
     depends_on:
       - generate_report
     timeout: 30s

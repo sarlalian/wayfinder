@@ -3,6 +3,8 @@ description: Enhanced MySQL backup workflow using script functionality
 
 variables:
   environment: "{{env 'ENVIRONMENT' 'development'}}"
+  s3_bucket: "nsg-database"
+  s3_path: "dbtest"
   database_name: "wayfindertest"
   mysql_user: "root"
   mysql_password: "root"
@@ -80,6 +82,24 @@ tasks:
       output_path: "./temp/backups/{{variables.database_name}}-{{timestamp '%Y%m%d'}}.sql.bz2.checksum"
       algorithm: sha256
     required: false
+
+  # Data export and storage
+  export_to_s3:
+    type: s3_upload
+    description: "Upload results to S3 storage"
+    config:
+      region: "us-east-1"
+      bucket: "{{variables.s3_bucket}}"
+      operation: "upload"
+      key: "{{variables.s3_path}}/{{timestamp '%Y%m%d'}}testdb.sql.bz2"
+      local_path: "./test/backups/{{variables.database_name}}-{{timestamp '%Y%m%d'}}.sql.bz2"
+    depends_on:
+      - compress_file
+    timeout: 600s
+    retry:
+      max_attempts: 2
+      delay: 10s
+      backoff_multiplier: 2.0
 
 output:
   destination: "file://./temp/output/{{workflow.name}}-{{timestamp '%Y%m%d-%H%M%S'}}.json"

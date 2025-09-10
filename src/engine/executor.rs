@@ -1,6 +1,7 @@
 // ABOUTME: Main task executor orchestrating workflow execution
 // ABOUTME: Coordinates dependency resolution, task scheduling, and execution monitoring
 
+use futures::future;
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::time::Instant;
@@ -129,6 +130,21 @@ impl TaskExecutor {
             }
         }
 
+        // Handle tasks that were never executed due to failed dependencies
+        for (task_id, task_config) in &workflow.tasks {
+            if workflow_result.get_task_result(task_id).is_none() {
+                // This task was never executed, likely due to failed dependencies
+                let mut skipped_result =
+                    TaskResult::new(task_id.clone(), task_config.task_type.to_string());
+                skipped_result.mark_completed(
+                    TaskStatus::Skipped,
+                    None,
+                    Some("Dependencies failed".to_string()),
+                );
+                workflow_result.update_task_result(task_id, skipped_result);
+            }
+        }
+
         // Mark workflow as completed
         workflow_result.mark_completed();
 
@@ -213,23 +229,38 @@ impl TaskExecutor {
             return Ok(skipped_results);
         }
 
-        // Execute the batch by iterating through tasks
-        let mut results = Vec::new();
+        // Execute the batch tasks concurrently
+        let task_futures: Vec<_> = scheduled_tasks
+            .into_iter()
+            .map(|scheduled_task| {
+                let task_config = workflow.tasks.get(&scheduled_task.task_id).unwrap().clone();
+                let scheduler = &self.scheduler;
+                let template_engine = &self.template_engine;
+                let task_registry = &self.task_registry;
+                let context = context.clone();
 
-        for scheduled_task in scheduled_tasks {
-            let task_config = workflow.tasks.get(&scheduled_task.task_id).unwrap().clone();
+                async move {
+                    scheduler
+                        .execute_task_with_retry(
+                            scheduled_task,
+                            |scheduled_task, context| async {
+                                Self::execute_single_task(
+                                    scheduled_task,
+                                    task_config.clone(),
+                                    context,
+                                    template_engine,
+                                    task_registry,
+                                )
+                                .await
+                            },
+                            context,
+                        )
+                        .await
+                }
+            })
+            .collect();
 
-            let result = Self::execute_single_task(
-                scheduled_task,
-                task_config,
-                context.clone(),
-                &self.template_engine,
-                &self.task_registry,
-            )
-            .await;
-
-            results.push(result);
-        }
+        let mut results = future::join_all(task_futures).await;
 
         // Combine executed results with skipped results
         results.extend(skipped_results);

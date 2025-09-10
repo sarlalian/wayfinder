@@ -164,12 +164,15 @@ name: timeout_test
 version: "1.0"
 
 tasks:
-  - id: timeout_task
+  timeout_task:
     type: command
     config:
       command: sleep
       args: ["10"]  # Sleep for 10 seconds
     timeout: 2s     # But timeout after 2 seconds
+
+output:
+  destination: "file://./test_output.json"
 "#;
 
     fs::write(&workflow_file, workflow_yaml).await.unwrap();
@@ -206,12 +209,15 @@ variables:
   environment: "test"
 
 tasks:
-  - id: var_task
+  var_task:
     type: command
     config:
       command: echo
-      args: ["${message} - Count: ${count} - Env: ${environment}"]
+      args: ["{{variables.message}} - Count: {{variables.count}} - Env: {{variables.environment}}"]
     timeout: 30s
+
+output:
+  destination: "file://./test_output.json"
 "#;
 
     fs::write(&workflow_file, workflow_yaml).await.unwrap();
@@ -243,26 +249,29 @@ name: parallel_test
 version: "1.0"
 
 tasks:
-  - id: parallel1
+  parallel1:
     type: command
     config:
       command: sleep
       args: ["1"]
     timeout: 10s
     
-  - id: parallel2
+  parallel2:
     type: command
     config:
       command: sleep
       args: ["1"]
     timeout: 10s
     
-  - id: parallel3
+  parallel3:
     type: command
     config:
       command: sleep
       args: ["1"]
     timeout: 10s
+
+output:
+  destination: "file://./test_output.json"
 "#;
 
     fs::write(&workflow_file, workflow_yaml).await.unwrap();
@@ -294,14 +303,14 @@ version: "1.0"
 
 tasks:
   # Layer 1: No dependencies
-  - id: init_a
+  init_a:
     type: command
     config:
       command: echo
       args: ["Init A"]
     timeout: 30s
     
-  - id: init_b
+  init_b:
     type: command
     config:
       command: echo
@@ -309,7 +318,7 @@ tasks:
     timeout: 30s
     
   # Layer 2: Depend on layer 1
-  - id: process_a
+  process_a:
     type: command
     config:
       command: echo
@@ -318,7 +327,7 @@ tasks:
       - init_a
     timeout: 30s
     
-  - id: process_b
+  process_b:
     type: command
     config:
       command: echo
@@ -328,7 +337,7 @@ tasks:
     timeout: 30s
     
   # Layer 3: Cross dependencies
-  - id: combine
+  combine:
     type: command
     config:
       command: echo
@@ -339,7 +348,7 @@ tasks:
     timeout: 30s
     
   # Layer 4: Final tasks
-  - id: finalize_a
+  finalize_a:
     type: command
     config:
       command: echo
@@ -348,7 +357,7 @@ tasks:
       - combine
     timeout: 30s
     
-  - id: finalize_b
+  finalize_b:
     type: command
     config:
       command: echo
@@ -358,7 +367,7 @@ tasks:
     timeout: 30s
     
   # Layer 5: Ultimate final task
-  - id: cleanup
+  cleanup:
     type: command
     config:
       command: echo
@@ -367,6 +376,9 @@ tasks:
       - finalize_a
       - finalize_b
     timeout: 30s
+
+output:
+  destination: "file://./test_output.json"
 "#;
 
     fs::write(&workflow_file, workflow_yaml).await.unwrap();

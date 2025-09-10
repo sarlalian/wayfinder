@@ -301,7 +301,7 @@ impl CompressTask {
         let compressed_size = compressed_metadata.len();
 
         let compression_ratio = if original_size > 0 {
-            ((original_size - compressed_size) as f64 / original_size as f64) * 100.0
+            ((original_size as f64 - compressed_size as f64) / original_size as f64) * 100.0
         } else {
             0.0
         };

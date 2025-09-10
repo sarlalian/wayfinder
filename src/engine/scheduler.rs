@@ -163,8 +163,38 @@ impl TaskScheduler {
                 task.task_id, current_attempt, retry_config.max_attempts
             );
 
-            // Execute the task
-            let result = executor_fn(task.clone(), context.for_task(task.task_id.clone())).await;
+            // Execute the task with timeout if specified
+            let result = if let Some(timeout_duration) = task.timeout {
+                match timeout(
+                    timeout_duration,
+                    executor_fn(task.clone(), context.for_task(task.task_id.clone())),
+                )
+                .await
+                {
+                    Ok(task_result) => task_result,
+                    Err(_) => {
+                        // Task timed out
+                        warn!(
+                            "Task {} timed out after {:?}",
+                            task.task_id, timeout_duration
+                        );
+                        TaskResult {
+                            task_id: task.task_id.clone(),
+                            task_type: task.task_type.clone(),
+                            status: TaskStatus::Timeout,
+                            start_time: chrono::Utc::now(),
+                            end_time: Some(chrono::Utc::now()),
+                            duration: Some(timeout_duration),
+                            output: None,
+                            error: Some(format!("Task timed out after {:?}", timeout_duration)),
+                            metadata: std::collections::HashMap::new(),
+                            retry_count: 0,
+                        }
+                    }
+                }
+            } else {
+                executor_fn(task.clone(), context.for_task(task.task_id.clone())).await
+            };
 
             match result.status {
                 TaskStatus::Success => {
@@ -198,7 +228,7 @@ impl TaskScheduler {
 
         // All retries exhausted, return the last result
         let mut final_result = last_result.expect("Should have at least one result");
-        final_result.retry_count = current_attempt - 1;
+        final_result.retry_count = current_attempt;
 
         error!(
             "Task {} failed after {} attempts",

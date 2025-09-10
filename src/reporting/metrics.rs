@@ -686,7 +686,7 @@ impl ExecutionMetrics {
 
     pub fn record_workflow_completion(&mut self, metrics: &WorkflowMetrics) {
         self.total_workflows += 1;
-        if metrics.status == "success" {
+        if metrics.status == "success" || metrics.status == "partial_success" {
             self.successful_workflows += 1;
         } else if metrics.status == "failed" {
             self.failed_workflows += 1;

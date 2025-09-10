@@ -86,8 +86,8 @@ impl TestWorkflowBuilder {
         let task = TestTask {
             id: id.to_string(),
             task_type: "command".to_string(),
-            command: "false".to_string(),
-            args: Vec::new(),
+            command: "sh".to_string(),
+            args: vec!["-c".to_string(), "exit 1".to_string()],
             depends_on: Vec::new(),
             timeout: "10s".to_string(),
             retry_attempts: None,
@@ -135,7 +135,7 @@ impl TestWorkflowBuilder {
             yaml.push_str(&format!("  {}:\n", task.id));
             yaml.push_str(&format!("    type: {}\n", task.task_type));
             yaml.push_str("    config:\n");
-            yaml.push_str(&format!("      command: {}\n", task.command));
+            yaml.push_str(&format!("      command: \"{}\"\n", task.command));
 
             if !task.args.is_empty() {
                 yaml.push_str("      args:\n");
@@ -164,7 +164,7 @@ impl TestWorkflowBuilder {
         }
 
         // Add required output section
-        yaml.push_str("\noutput:\n  format: json\n  destination: console\n");
+        yaml.push_str("\noutput:\n  destination: \"file://./test_output.json\"\n");
 
         yaml
     }

@@ -20,7 +20,11 @@ tasks:
     description: "Validate environment configuration"
     config:
       command: bash
-      args: ["-c", "echo 'Validating ${environment} environment' && echo 'Database: ${database_host}/${database_name}'"]
+      args:
+        [
+          "-c",
+          "echo 'Validating ${environment} environment' && echo 'Database: ${database_host}/${database_name}'",
+        ]
     timeout: 30s
 
   check_deps:
@@ -28,7 +32,11 @@ tasks:
     description: "Check required dependencies and services"
     config:
       command: bash
-      args: ["-c", "echo 'Checking system dependencies...' && echo 'All dependencies available'"]
+      args:
+        [
+          "-c",
+          "echo 'Checking system dependencies...' && echo 'All dependencies available'",
+        ]
     depends_on:
       - validate_environment
     timeout: 45s
@@ -39,7 +47,11 @@ tasks:
     description: "Extract user data from primary database"
     config:
       command: bash
-      args: ["-c", "echo 'Extracting user data for date: ${processing_date}' && sleep 2 && echo 'Extracted 10,000 user records'"]
+      args:
+        [
+          "-c",
+          "echo 'Extracting user data for date: ${processing_date}' && sleep 2 && echo 'Extracted 10,000 user records'",
+        ]
     depends_on:
       - check_dependencies
     timeout: 300s
@@ -53,7 +65,11 @@ tasks:
     description: "Extract transaction data from secondary database"
     config:
       command: bash
-      args: ["-c", "echo 'Extracting transaction data for date: ${processing_date}' && sleep 3 && echo 'Extracted 50,000 transaction records'"]
+      args:
+        [
+          "-c",
+          "echo 'Extracting transaction data for date: ${processing_date}' && sleep 3 && echo 'Extracted 50,000 transaction records'",
+        ]
     depends_on:
       - check_dependencies
     timeout: 300s
@@ -85,7 +101,11 @@ tasks:
     description: "Apply transformations to user data"
     config:
       command: bash
-      args: ["-c", "echo 'Transforming user data...' && sleep 2 && echo 'User data transformation complete'"]
+      args:
+        [
+          "-c",
+          "echo 'Transforming user data...' && sleep 2 && echo 'User data transformation complete'",
+        ]
     depends_on:
       - extract_user_data
     timeout: 240s
@@ -95,7 +115,11 @@ tasks:
     description: "Apply transformations to transaction data"
     config:
       command: bash
-      args: ["-c", "echo 'Transforming transaction data...' && sleep 3 && echo 'Transaction data transformation complete'"]
+      args:
+        [
+          "-c",
+          "echo 'Transforming transaction data...' && sleep 3 && echo 'Transaction data transformation complete'",
+        ]
     depends_on:
       - extract_transaction_data
     timeout: 360s
@@ -105,7 +129,11 @@ tasks:
     description: "Enrich internal data with external reference data"
     config:
       command: bash
-      args: ["-c", "echo 'Enriching data with external references...' && sleep 1 && echo 'Data enrichment complete'"]
+      args:
+        [
+          "-c",
+          "echo 'Enriching data with external references...' && sleep 1 && echo 'Data enrichment complete'",
+        ]
     depends_on:
       - extract_external_data
       - transform_user_data
@@ -117,7 +145,11 @@ tasks:
     description: "Run data quality checks on transformed data"
     config:
       command: bash
-      args: ["-c", "echo 'Running data quality checks...' && echo 'Quality Score: 98.5%' && echo 'Data quality validation passed'"]
+      args:
+        [
+          "-c",
+          "echo 'Running data quality checks...' && echo 'Quality Score: 98.5%' && echo 'Data quality validation passed'",
+        ]
     depends_on:
       - transform_user_data
       - transform_transaction_data
@@ -133,7 +165,11 @@ tasks:
     description: "Generate user behavior metrics"
     config:
       command: bash
-      args: ["-c", "echo 'Generating user metrics...' && echo 'Active users: 8,500' && echo 'User metrics generated'"]
+      args:
+        [
+          "-c",
+          "echo 'Generating user metrics...' && echo 'Active users: 8,500' && echo 'User metrics generated'",
+        ]
     depends_on:
       - validate_data_quality
     timeout: 300s
@@ -143,7 +179,11 @@ tasks:
     description: "Generate transaction analytics"
     config:
       command: bash
-      args: ["-c", "echo 'Generating transaction metrics...' && echo 'Total volume: $2.5M' && echo 'Transaction metrics generated'"]
+      args:
+        [
+          "-c",
+          "echo 'Generating transaction metrics...' && echo 'Total volume: $2.5M' && echo 'Transaction metrics generated'",
+        ]
     depends_on:
       - validate_data_quality
     timeout: 300s
@@ -153,7 +193,11 @@ tasks:
     description: "Create comprehensive analytical report"
     config:
       command: bash
-      args: ["-c", "echo 'Creating combined analytics report...' && echo 'Report includes user and transaction insights' && echo 'Combined report generated'"]
+      args:
+        [
+          "-c",
+          "echo 'Creating combined analytics report...' && echo 'Report includes user and transaction insights' && echo 'Combined report generated'",
+        ]
     depends_on:
       - generate_user_metrics
       - generate_transaction_metrics
@@ -161,12 +205,14 @@ tasks:
 
   # Data export and storage
   export_to_s3:
-    type: s3
+    type: s3_upload
     description: "Upload results to S3 storage"
     config:
+      region: "us-east-1"
       bucket: "${s3_bucket}"
       key: "analytics/${processing_date}/combined_report.json"
-      region: "us-east-1"
+      local_path: "./test/backups"
+
     depends_on:
       - generate_combined_report
     timeout: 240s
@@ -180,7 +226,11 @@ tasks:
     description: "Update summary tables in database"
     config:
       command: bash
-      args: ["-c", "echo 'Updating summary tables in ${database_name}...' && echo 'Database update complete'"]
+      args:
+        [
+          "-c",
+          "echo 'Updating summary tables in ${database_name}...' && echo 'Database update complete'",
+        ]
     depends_on:
       - generate_combined_report
     timeout: 180s
@@ -220,7 +270,11 @@ tasks:
     description: "Clean up temporary processing files"
     config:
       command: bash
-      args: ["-c", "echo 'Cleaning up temporary files...' && echo 'Cleanup completed'"]
+      args:
+        [
+          "-c",
+          "echo 'Cleaning up temporary files...' && echo 'Cleanup completed'",
+        ]
     depends_on:
       - send_completion_notification
     timeout: 60s
@@ -230,7 +284,11 @@ tasks:
     description: "Archive processing logs for audit purposes"
     config:
       command: bash
-      args: ["-c", "echo 'Archiving logs for ${processing_date}...' && echo 'Logs archived successfully'"]
+      args:
+        [
+          "-c",
+          "echo 'Archiving logs for ${processing_date}...' && echo 'Logs archived successfully'",
+        ]
     depends_on:
       - cleanup_temporary_files
     timeout: 120s
