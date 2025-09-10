@@ -6,18 +6,18 @@ A powerful CLI-based workflow engine for executing declarative YAML workflows wi
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
 
-## ✨ Features
+## Features
 
-- **📋 Declarative YAML Workflows** - Define complex workflows using simple, readable YAML syntax
-- **🔗 Dependency Management** - Automatic task scheduling with dependency resolution and cycle detection
-- **🎯 Template System** - Powerful Handlebars-based templating with built-in helpers for dynamic workflows
-- **⚡ Parallel Execution** - Run independent tasks concurrently for maximum performance
-- **🔄 Task Types** - Rich set of built-in task types including command, compression, checksum, and more
-- **📊 Progress Tracking** - Real-time execution monitoring with detailed logging
-- **🛡️ Error Handling** - Robust error handling with configurable retry policies and failure modes
-- **📈 Reporting** - Generate detailed execution reports in multiple formats
+- **Declarative YAML Workflows** - Define complex workflows using simple, readable YAML syntax
+- **Dependency Management** - Automatic task scheduling with dependency resolution and cycle detection
+- **Template System** - Powerful Handlebars-based templating with built-in helpers for dynamic workflows
+- **Parallel Execution** - Run independent tasks concurrently for maximum performance
+- **Task Types** - Rich set of built-in task types including command, compression, checksum, and more
+- **Progress Tracking** - Real-time execution monitoring with detailed logging
+- **Error Handling** - Robust error handling with configurable retry policies and failure modes
+- **Reporting** - Generate detailed execution reports in multiple formats
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
@@ -61,7 +61,7 @@ Run it:
 wayfinder run hello.yaml
 ```
 
-## 📖 Usage
+## Usage
 
 ### CLI Commands
 
@@ -90,38 +90,38 @@ wayfinder report results.json --format html --output report.html
 A workflow consists of:
 
 ```yaml
-name: workflow_name                    # Required: Workflow identifier
-description: "Workflow description"    # Optional: Human-readable description  
-version: "1.0"                        # Optional: Version identifier
-author: "Your Name"                   # Optional: Author information
+name: workflow_name # Required: Workflow identifier
+description: "Workflow description" # Optional: Human-readable description
+version: "1.0" # Optional: Version identifier
+author: "Your Name" # Optional: Author information
 
-variables:                            # Optional: Template variables
+variables: # Optional: Template variables
   key: "value"
   environment: "{{env 'ENVIRONMENT' 'development'}}"
 
-tasks:                               # Required: Task definitions
+tasks: # Required: Task definitions
   task_name:
-    type: command                    # Required: Task type
-    description: "Task description"  # Optional: Task description
-    config:                         # Required: Task-specific configuration
+    type: command # Required: Task type
+    description: "Task description" # Optional: Task description
+    config: # Required: Task-specific configuration
       # ... task config
-    depends_on: [other_task]        # Optional: Dependencies
-    required: true                  # Optional: Whether task is required (default: true)
-    when: "{{variables.environment == 'production'}}"  # Optional: Conditional execution
-    timeout_seconds: 300            # Optional: Task timeout
-    retry_config:                   # Optional: Retry configuration
+    depends_on: [other_task] # Optional: Dependencies
+    required: true # Optional: Whether task is required (default: true)
+    when: "{{variables.environment == 'production'}}" # Optional: Conditional execution
+    timeout_seconds: 300 # Optional: Task timeout
+    retry_config: # Optional: Retry configuration
       max_attempts: 3
       delay_seconds: 5
 
-output:                             # Optional: Output configuration
+output: # Optional: Output configuration
   destination: "file://output.json"
 
-on_error:                           # Optional: Error handling
-  continue: false                   # Whether to continue on errors
-  cleanup_tasks: [cleanup]          # Tasks to run on error
+on_error: # Optional: Error handling
+  continue: false # Whether to continue on errors
+  cleanup_tasks: [cleanup] # Tasks to run on error
 ```
 
-## 🛠️ Task Types
+## Task Types
 
 ### Command Task
 
@@ -134,7 +134,7 @@ tasks:
     config:
       command: echo
       args: ["Hello World"]
-      
+
   script_command:
     type: command
     config:
@@ -160,9 +160,9 @@ tasks:
     config:
       input_path: "./data.txt"
       output_path: "./data.txt.bz2"
-      compression_type: bzip2      # Options: bzip2, xz, lzma
-      compression_level: 9         # 1-9 (optional)
-      preserve_original: false     # Keep original file (default: false)
+      compression_type: bzip2 # Options: bzip2, xz, lzma
+      compression_level: 9 # 1-9 (optional)
+      preserve_original: false # Keep original file (default: false)
 ```
 
 ### Checksum Task
@@ -176,8 +176,8 @@ tasks:
     config:
       input_path: "./important_file.txt"
       output_path: "./important_file.txt.sha256"
-      algorithm: sha256            # Options: sha256, sha512, md5
-      base64_encode: false         # Encode output as base64 (default: false)
+      algorithm: sha256 # Options: sha256, sha512, md5
+      base64_encode: false # Encode output as base64 (default: false)
 ```
 
 ### S3 Upload/Download
@@ -207,7 +207,7 @@ tasks:
       to: ["admin@company.com"]
       subject: "Workflow {{workflow.name}} completed"
       template_path: "./email_template.html"
-      
+
   slack_alert:
     type: slack
     config:
@@ -216,16 +216,16 @@ tasks:
       message: "🚀 Deployment completed successfully!"
 ```
 
-## 🎨 Template System
+## Template System
 
 Wayfinder uses Handlebars templating with powerful built-in helpers:
 
 ### Variables
+
 ```yaml
 variables:
   environment: "production"
   version: "1.2.3"
-
 # Usage: {{variables.environment}}
 ```
 
@@ -248,7 +248,7 @@ variables:
 - **`{{system.hostname}}`** - System hostname
 - **`{{system.username}}`** - Current user
 
-## 📦 Example Workflows
+## Example Workflows
 
 ### Database Backup Pipeline
 
@@ -341,7 +341,7 @@ tasks:
     type: command
     config:
       script: |
-        echo "Processing dataset 2..." 
+        echo "Processing dataset 2..."
         sleep 8
         echo "Dataset 2 complete"
 
@@ -362,7 +362,7 @@ tasks:
       args: ["All datasets processed, combining results..."]
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 Create a `wayfinder.toml` configuration file:
 
@@ -389,7 +389,7 @@ default_region = "us-west-2"
 default_slack_channel = "#workflows"
 ```
 
-## 🧪 Testing & Validation
+## Testing & Validation
 
 ```bash
 # Validate workflow syntax
@@ -436,11 +436,11 @@ tasks:
 
 ```yaml
 on_error:
-  continue: false                    # Stop on first error
-  cleanup_tasks: [cleanup, notify]   # Run cleanup tasks on failure
+  continue: false # Stop on first error
+  cleanup_tasks: [cleanup, notify] # Run cleanup tasks on failure
 ```
 
-## 📊 Reporting
+## Reporting
 
 Generate detailed execution reports:
 
@@ -455,7 +455,7 @@ wayfinder report execution.json --format csv --output summary.csv
 wayfinder report execution.json --format json --output detailed.json
 ```
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -484,26 +484,42 @@ cargo fmt --all -- --check
 
 # Run linter
 cargo clippy --all-targets --all-features -- -D warnings
+
+# Set up pre-commit hooks for automatic formatting/linting
+pip install pre-commit
+pre-commit install
+
+# Run pre-commit on all files
+pre-commit run --all-files
 ```
 
-## 📝 License
+### Pre-commit Hooks
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project uses pre-commit hooks to automatically format and lint code before commits:
 
-## 🙏 Acknowledgments
+- **Rust formatting** - `cargo fmt` ensures consistent code style
+- **Clippy linting** - Catches common mistakes and suggests improvements
+- **Compilation check** - Verifies code compiles before commit
+- **Test execution** - Runs test suite to catch regressions
+- **YAML validation** - Ensures workflow files are valid
+- **General checks** - Trailing whitespace, large files, private keys
+
+See [.pre-commit-install.md](.pre-commit-install.md) for detailed setup instructions.
+
+## License
+
+This project is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE - see the [LICENSE](LICENSE.) file for details.
+
+## Acknowledgments
 
 - Built with [Rust](https://www.rust-lang.org/) for performance and safety
 - Uses [Tokio](https://tokio.rs/) for async runtime
 - Template engine powered by [Handlebars](https://handlebarsjs.com/)
 - Dependency management via [petgraph](https://github.com/petgraph/petgraph)
 
-## 📚 Additional Resources
+## Additional Resources
 
 - [Examples Directory](examples/) - Complete workflow examples
 - [Configuration Reference](docs/configuration.md) - Detailed configuration options
 - [Template Helper Reference](docs/templates.md) - All available template helpers
 - [Task Type Reference](docs/tasks.md) - Complete task type documentation
-
----
-
-**Wayfinder** - Navigate your workflows with confidence! 🧭
