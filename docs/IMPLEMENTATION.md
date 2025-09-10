@@ -8,7 +8,7 @@
 Based on the architecture defined in `PLAN.md`, the wayfinder workflow engine consists of 7 core modules:
 
 1. **CLI Application** (`src/cli/`)
-2. **Workflow Parser** (`src/parser/`)  
+2. **Workflow Parser** (`src/parser/`)
 3. **Template Engine** (`src/template/`)
 4. **Task Engine** (`src/engine/`)
 5. **Native Tasks** (`src/tasks/`)
@@ -51,10 +51,10 @@ src/cli/
 pub struct Args {
     #[command(subcommand)]
     pub command: Commands,
-    
+
     #[arg(short, long, global = true)]
     pub verbose: bool,
-    
+
     #[arg(short, long, global = true)]
     pub config: Option<PathBuf>,
 }
@@ -64,10 +64,10 @@ pub enum Commands {
     Run {
         #[arg(help = "Path to workflow YAML file")]
         workflow: PathBuf,
-        
+
         #[arg(short, long, help = "Override template variables")]
         vars: Vec<String>,
-        
+
         #[arg(long, help = "Dry run - validate without executing")]
         dry_run: bool,
     },
@@ -115,7 +115,7 @@ impl App {
         // 4. Execute workflow
         // 5. Generate output
     }
-    
+
     pub async fn validate(&self, workflow_path: PathBuf) -> Result<()> {
         // Parse and validate workflow without execution
     }
@@ -203,22 +203,22 @@ pub struct WorkflowValidator;
 impl WorkflowValidator {
     pub fn validate(&self, workflow: &Workflow) -> Result<ValidationReport> {
         let mut report = ValidationReport::new();
-        
+
         // Check for circular dependencies
         self.validate_dependencies(&workflow.tasks, &mut report)?;
-        
+
         // Validate task configurations
         self.validate_task_configs(&workflow.tasks, &mut report)?;
-        
+
         // Validate template syntax
         self.validate_templates(&workflow, &mut report)?;
-        
+
         // Validate output configuration
         self.validate_output_config(&workflow.output, &mut report)?;
-        
+
         Ok(report)
     }
-    
+
     fn validate_dependencies(&self, tasks: &IndexMap<String, TaskConfig>, report: &mut ValidationReport) -> Result<()> {
         // Topological sort to detect cycles
         // Ensure all dependencies exist
@@ -262,30 +262,30 @@ pub struct TemplateEngine {
 impl TemplateEngine {
     pub fn new() -> Self {
         let mut handlebars = Handlebars::new();
-        
+
         // Register built-in helpers
         handlebars.register_helper("hostname", Box::new(hostname_helper));
         handlebars.register_helper("timestamp", Box::new(timestamp_helper));
         handlebars.register_helper("uuid", Box::new(uuid_helper));
         handlebars.register_helper("env", Box::new(env_helper));
         handlebars.register_helper("file_exists", Box::new(file_exists_helper));
-        
+
         Self { handlebars }
     }
-    
+
     pub fn render(&self, template: &str, context: &TemplateContext) -> Result<String> {
         self.handlebars.render_template(template, context)
             .map_err(|e| TemplateError::RenderError(e.to_string()))
     }
-    
+
     pub fn resolve_workflow(&self, workflow: &mut Workflow, variables: &HashMap<String, String>) -> Result<()> {
         let context = TemplateContext::new(variables);
-        
+
         // Resolve all template strings in workflow
         for (_, task) in &mut workflow.tasks {
             self.resolve_task_config(task, &context)?;
         }
-        
+
         Ok(())
     }
 }
@@ -317,7 +317,7 @@ pub fn timestamp_helper(
     let format = h.param(0)
         .and_then(|v| v.value().as_str())
         .unwrap_or("%Y-%m-%d %H:%M:%S");
-    
+
     let now = chrono::Utc::now();
     let formatted = now.format(format).to_string();
     out.write(&formatted)?;
@@ -347,7 +347,7 @@ impl TemplateContext {
     pub fn new(variables: &HashMap<String, String>) -> Self {
         let env = std::env::vars().collect();
         let system = SystemInfo::collect();
-        
+
         Self {
             variables: variables.clone(),
             env,
@@ -398,33 +398,33 @@ impl TaskExecutor {
     pub async fn execute_workflow(&self, workflow: &Workflow) -> Result<WorkflowResult> {
         // 1. Build dependency graph
         let graph = DependencyGraph::from_workflow(workflow)?;
-        
+
         // 2. Create execution plan
         let plan = graph.create_execution_plan()?;
-        
+
         // 3. Execute tasks according to plan
         let mut results = WorkflowResult::new();
-        
+
         for batch in plan.batches {
             let batch_results = self.execute_batch(batch, &workflow.tasks).await?;
             results.merge(batch_results);
-            
+
             // Stop execution if any required task failed
             if results.has_critical_failure() {
                 break;
             }
         }
-        
+
         Ok(results)
     }
-    
+
     async fn execute_batch(&self, batch: Vec<String>, tasks: &IndexMap<String, TaskConfig>) -> Result<BatchResult> {
         let futures = batch.into_iter().map(|task_id| {
             let task_config = &tasks[&task_id];
             let task = self.registry.create_task(&task_config.task_type)?;
             self.execute_task_with_retry(task_id.clone(), task, task_config)
         });
-        
+
         let results = futures::future::join_all(futures).await;
         Ok(BatchResult::from_results(results))
     }
@@ -442,17 +442,17 @@ impl DependencyGraph {
     pub fn from_workflow(workflow: &Workflow) -> Result<Self> {
         let mut graph = Graph::new();
         let mut task_ids = HashMap::new();
-        
+
         // Add all tasks as nodes
         for (task_id, _) in &workflow.tasks {
             let node_id = graph.add_node(task_id.clone());
             task_ids.insert(task_id.clone(), node_id);
         }
-        
+
         // Add dependency edges
         for (task_id, task_config) in &workflow.tasks {
             let task_node = task_ids[task_id];
-            
+
             for dep in &task_config.depends_on {
                 if let Some(&dep_node) = task_ids.get(dep) {
                     graph.add_edge(dep_node, task_node, ());
@@ -464,15 +464,15 @@ impl DependencyGraph {
                 }
             }
         }
-        
+
         Ok(Self { graph, task_ids })
     }
-    
+
     pub fn create_execution_plan(&self) -> Result<ExecutionPlan> {
         // Topological sort with batching for parallel execution
         let topo_order = petgraph::algo::toposort(&self.graph, None)
             .map_err(|_| DependencyError::CircularDependency)?;
-        
+
         let batches = self.create_execution_batches(topo_order);
         Ok(ExecutionPlan { batches })
     }
@@ -499,7 +499,7 @@ impl TaskScheduler {
                 task.await
             })
         });
-        
+
         let results = futures::future::join_all(futures).await;
         results.into_iter().map(|r| r.unwrap()).collect()
     }
@@ -597,48 +597,48 @@ impl Task for CommandTask {
     async fn execute(&self, context: &ExecutionContext) -> Result<TaskResult> {
         let mut cmd = tokio::process::Command::new(&self.config.command);
         cmd.args(&self.config.args);
-        
+
         // Set working directory
         if let Some(ref wd) = self.config.working_dir {
             cmd.current_dir(wd);
         }
-        
+
         // Load environment from .env file if specified
         if let Some(ref env_file) = self.config.env_file {
             self.load_env_file(env_file, &mut cmd)?;
         }
-        
+
         // Set additional environment variables
         cmd.envs(&self.config.env);
-        
+
         // Configure output capture
         if self.config.capture_output {
             cmd.stdout(std::process::Stdio::piped());
             cmd.stderr(std::process::Stdio::piped());
         }
-        
+
         let start = Instant::now();
         let output = tokio::time::timeout(
             self.config.timeout.unwrap_or(Duration::from_secs(3600)),
             cmd.output()
         ).await??;
-        
+
         let duration = start.elapsed();
-        
+
         // Save output to files if specified
         self.save_output(&output).await?;
-        
+
         let status = if output.status.success() {
             TaskStatus::Success
         } else {
             TaskStatus::Failed
         };
-        
+
         Ok(TaskResult {
             task_id: context.task_id.clone(),
             status,
             output: Some(String::from_utf8_lossy(&output.stdout).to_string()),
-            error: if output.stderr.is_empty() { None } else { 
+            error: if output.stderr.is_empty() { None } else {
                 Some(String::from_utf8_lossy(&output.stderr).to_string())
             },
             duration,
@@ -674,24 +674,24 @@ pub enum CompressionType {
 impl Task for CompressTask {
     async fn execute(&self, context: &ExecutionContext) -> Result<TaskResult> {
         let start = Instant::now();
-        
+
         match self.config.compression_type {
             CompressionType::Bzip2 => self.compress_bzip2().await?,
             CompressionType::Xz => self.compress_xz().await?,
             CompressionType::Lza => self.compress_lza().await?,
         }
-        
+
         let duration = start.elapsed();
-        
+
         // Remove original file if not preserving
         if !self.config.preserve_original {
             tokio::fs::remove_file(&self.config.input_path).await?;
         }
-        
+
         Ok(TaskResult {
             task_id: context.task_id.clone(),
             status: TaskStatus::Success,
-            output: Some(format!("Compressed {} to {}", 
+            output: Some(format!("Compressed {} to {}",
                 self.config.input_path.display(),
                 self.config.output_path.display()
             )),
@@ -725,42 +725,42 @@ pub struct S3UploadConfig {
 impl Task for S3UploadTask {
     async fn execute(&self, context: &ExecutionContext) -> Result<TaskResult> {
         let start = Instant::now();
-        
+
         let body = ByteStream::from_path(&self.config.local_path).await?;
-        
+
         let mut request = self.client
             .put_object()
             .bucket(&self.config.bucket)
             .key(&self.config.key)
             .body(body);
-        
+
         // Set ACL if specified
         if let Some(ref acl) = self.config.acl {
             request = request.acl(acl.parse()?);
         }
-        
+
         // Set content type
         if let Some(ref content_type) = self.config.content_type {
             request = request.content_type(content_type);
         }
-        
+
         // Set metadata
         for (key, value) in &self.config.metadata {
             request = request.metadata(key, value);
         }
-        
+
         let result = request.send().await?;
         let duration = start.elapsed();
-        
+
         // Apply tags if specified
         if !self.config.tags.is_empty() {
             self.apply_tags(&result).await?;
         }
-        
+
         Ok(TaskResult {
             task_id: context.task_id.clone(),
             status: TaskStatus::Success,
-            output: Some(format!("Uploaded {} to s3://{}/{}", 
+            output: Some(format!("Uploaded {} to s3://{}/{}",
                 self.config.local_path.display(),
                 self.config.bucket,
                 self.config.key
@@ -816,11 +816,11 @@ impl OutputFormatter {
             tasks: result.tasks.iter().map(|t| self.format_task_result(t)).collect(),
             summary: self.create_summary(&result),
         };
-        
+
         serde_json::to_string_pretty(&output)
             .map_err(|e| OutputError::SerializationError(e.to_string()))
     }
-    
+
     fn format_task_result(&self, task: &TaskResult) -> TaskOutput {
         TaskOutput {
             task_id: task.task_id.clone(),
@@ -856,7 +856,7 @@ pub struct OutputHandler {
 impl OutputHandler {
     pub async fn write_output(&self, output: &str, destination: &str) -> Result<()> {
         let url = Url::parse(destination)?;
-        
+
         match url.scheme() {
             "file" => {
                 let path = url.to_file_path()
@@ -894,7 +894,7 @@ handlebars = "4.4"
 ### File Structure
 ```
 src/reporting/
-├── mod.rs           # Module exports  
+├── mod.rs           # Module exports
 ├── engine.rs        # Main reporting engine
 ├── readers/         # Input source readers
 │   ├── file.rs      # File source reader
@@ -929,26 +929,26 @@ impl ReportingEngine {
             let source_results = reader.read_results(source).await?;
             results.extend(source_results);
         }
-        
+
         // Generate aggregate report
         let report_data = self.aggregate_results(results)?;
-        
+
         // Send reports to configured destinations
         for destination in &config.destinations {
             let generator = self.get_generator(&destination.destination_type)?;
             generator.generate_and_send(&report_data, destination).await?;
         }
-        
+
         Ok(())
     }
-    
+
     fn aggregate_results(&self, results: Vec<WorkflowResult>) -> Result<AggregateReport> {
         let mut report = AggregateReport::new();
-        
+
         for result in results {
             report.add_workflow_result(result);
         }
-        
+
         report.calculate_statistics();
         Ok(report)
     }
@@ -966,11 +966,11 @@ pub struct EmailReportGenerator {
 impl ReportGenerator for EmailReportGenerator {
     async fn generate_and_send(&self, report: &AggregateReport, destination: &ReportDestination) -> Result<()> {
         let email_config = destination.config.as_email()?;
-        
+
         // Render email template
         let html_content = self.render_email_template(report)?;
         let text_content = self.render_text_template(report)?;
-        
+
         // Create email message
         let email = Message::builder()
             .from(email_config.from.parse()?)
@@ -981,14 +981,14 @@ impl ReportGenerator for EmailReportGenerator {
                     .singlepart(SinglePart::plain(text_content))
                     .singlepart(SinglePart::html(html_content))
             )?;
-        
+
         // Send via configured method
         match (&self.smtp_client, &self.ses_client) {
             (Some(smtp), _) => smtp.send(&email)?,
             (_, Some(ses)) => self.send_via_ses(email, ses).await?,
             _ => return Err(ReportError::NoEmailTransport),
         }
-        
+
         Ok(())
     }
 }
@@ -1004,7 +1004,7 @@ impl ReportGenerator for EmailReportGenerator {
 
 **Dependencies**: cli → parser
 
-### Phase 2: Core Engine (Modules 3-4)  
+### Phase 2: Core Engine (Modules 3-4)
 3. **Template Engine** - Template resolution and helper functions
 4. **Task Engine** - Execution framework and dependency resolution
 
@@ -1016,10 +1016,10 @@ impl ReportGenerator for EmailReportGenerator {
 **Dependencies**: tasks → (engine, template)
 
 ### Phase 4: Output & Reporting (Modules 6-7)
-6. **Output Handler** - Result formatting and destination handling  
+6. **Output Handler** - Result formatting and destination handling
 7. **Reporting Engine** - Report generation and delivery
 
-**Dependencies**: 
+**Dependencies**:
 - output → engine
 - reporting → (output, tasks)
 
@@ -1047,7 +1047,7 @@ Each module should include:
 ```
 tests/
 ├── unit/            # Unit tests for each module
-├── integration/     # Cross-module integration tests  
+├── integration/     # Cross-module integration tests
 ├── fixtures/        # Test workflows and data
 ├── examples/        # Example workflows
 └── benchmarks/      # Performance tests

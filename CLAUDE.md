@@ -12,7 +12,7 @@ Based on `docs/PLAN.md`, the system will include:
 
 ### Core Components
 1. **CLI Application** - Main entry point using Clap
-2. **Workflow Parser** - YAML parsing and validation  
+2. **Workflow Parser** - YAML parsing and validation
 3. **Template Engine** - Text templating with functions like hostname, times, etc.
 4. **Task Engine** - Execution framework with dependency resolution
 5. **Native Tasks** - Built-in implementations for various task types
