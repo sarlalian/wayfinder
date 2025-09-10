@@ -1,0 +1,49 @@
+# Simple example workflow demonstrating basic task execution with updated syntax
+name: simple_example
+description: A basic workflow that demonstrates sequential task execution
+version: "1.0"
+author: "Wayfinder Examples"
+
+variables:
+  greeting: "Hello"
+  target: "World"
+  count: "3"
+
+tasks:
+  welcome:
+    type: command
+    description: "Print a welcome message"
+    config:
+      command: echo
+      args: ["{{variables.greeting}} {{variables.target}}! Starting workflow execution."]
+    required: true
+    timeout_seconds: 30
+
+  count_down:
+    type: command
+    description: "Count down from the specified number using script mode"
+    config:
+      script: |
+        echo "Starting countdown from {{variables.count}}"
+        for i in $(seq {{variables.count}} -1 1); do
+            echo "Countdown: $i"
+            sleep 1
+        done
+        echo "Countdown completed!"
+      shell: /bin/bash
+    depends_on: [welcome]
+    required: true
+    timeout_seconds: 60
+
+  completion:
+    type: command
+    description: "Signal workflow completion"
+    config:
+      command: echo
+      args: ["🎉 Workflow {{workflow.name}} completed successfully! All tasks finished at {{timestamp}}."]
+    depends_on: [count_down]
+    required: true
+    timeout_seconds: 30
+
+output:
+  destination: "file://./temp/output/{{workflow.name}}-{{timestamp '%Y%m%d-%H%M%S'}}.json"

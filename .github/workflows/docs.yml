@@ -1,0 +1,437 @@
+name: Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'examples/**'
+      - 'docs/**'
+      - 'README.md'
+      - 'Cargo.toml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'examples/**'
+      - 'docs/**'
+      - 'README.md'
+      - 'Cargo.toml'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Generate and validate documentation
+  generate-docs:
+    name: Generate Documentation
+    runs-on: ubuntu-latest
+    
+    outputs:
+      docs_changed: ${{ steps.check_changes.outputs.docs_changed }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: documentation
+
+      - name: Generate API documentation
+        run: |
+          echo "Generating API documentation..."
+          cargo doc --no-deps --document-private-items --all-features
+          
+          # Create index.html redirect
+          cat > target/doc/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta http-equiv="refresh" content="0; url=wayfinder/index.html">
+            <title>Wayfinder Documentation</title>
+          </head>
+          <body>
+            <p><a href="wayfinder/index.html">Wayfinder Documentation</a></p>
+          </body>
+          </html>
+          EOF
+          
+          echo "✅ API documentation generated successfully"
+
+      - name: Validate documentation links
+        run: |
+          echo "Validating documentation links..."
+          # Check that main modules are documented
+          if [ ! -f "target/doc/wayfinder/index.html" ]; then
+            echo "❌ Main crate documentation not found"
+            exit 1
+          fi
+          
+          # Check for missing docs warnings
+          if cargo doc --no-deps --document-private-items 2>&1 | grep -q "warning: missing documentation"; then
+            echo "⚠️ Missing documentation warnings found - consider adding docs for public items"
+          else
+            echo "✅ No missing documentation warnings"
+          fi
+
+      - name: Check for documentation changes
+        id: check_changes
+        run: |
+          if git diff --quiet HEAD~1 -- src/ Cargo.toml; then
+            echo "docs_changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "docs_changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload documentation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-documentation
+          path: target/doc/
+          retention-days: 30
+
+  # Validate examples and generate example documentation
+  validate-examples:
+    name: Validate Examples
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: examples-validation
+
+      - name: Build wayfinder
+        run: cargo build --release
+
+      - name: Validate all examples
+        run: |
+          echo "Validating example workflows..."
+          VALIDATION_RESULTS=""
+          EXIT_CODE=0
+          
+          for workflow in examples/*.yaml; do
+            echo "Validating $(basename "$workflow")..."
+            if ./target/release/wayfinder validate "$workflow"; then
+              echo "✅ $(basename "$workflow") - Valid"
+              VALIDATION_RESULTS="${VALIDATION_RESULTS}\n✅ $(basename "$workflow") - Valid"
+            else
+              echo "❌ $(basename "$workflow") - Invalid"
+              VALIDATION_RESULTS="${VALIDATION_RESULTS}\n❌ $(basename "$workflow") - Invalid"
+              EXIT_CODE=1
+            fi
+          done
+          
+          echo -e "\n## Example Validation Results" >> $GITHUB_STEP_SUMMARY
+          echo -e "$VALIDATION_RESULTS" >> $GITHUB_STEP_SUMMARY
+          
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "::error title=Example Validation Failed::Some example workflows failed validation"
+            exit $EXIT_CODE
+          fi
+
+      - name: Test example execution
+        run: |
+          echo "Testing example execution..."
+          EXECUTION_RESULTS=""
+          
+          # Test a subset of examples that are safe to run
+          SAFE_EXAMPLES=(
+            "examples/simple_workflow.yaml"
+            "examples/script-example.yaml"
+            "examples/template-test.yaml"
+          )
+          
+          for workflow in "${SAFE_EXAMPLES[@]}"; do
+            if [ -f "$workflow" ]; then
+              echo "Testing execution of $(basename "$workflow")..."
+              if timeout 60 ./target/release/wayfinder run "$workflow"; then
+                echo "✅ $(basename "$workflow") - Executed successfully"
+                EXECUTION_RESULTS="${EXECUTION_RESULTS}\n✅ $(basename "$workflow") - Executed successfully"
+              else
+                echo "❌ $(basename "$workflow") - Execution failed or timed out"
+                EXECUTION_RESULTS="${EXECUTION_RESULTS}\n❌ $(basename "$workflow") - Execution failed or timed out"
+              fi
+            fi
+          done
+          
+          echo -e "\n## Example Execution Results" >> $GITHUB_STEP_SUMMARY
+          echo -e "$EXECUTION_RESULTS" >> $GITHUB_STEP_SUMMARY
+
+      - name: Generate example documentation
+        run: |
+          echo "Generating example documentation..."
+          mkdir -p docs/examples
+          
+          cat > docs/examples/README.md << 'EOF'
+          # Wayfinder Examples
+          
+          This directory contains example workflows demonstrating various features of Wayfinder.
+          
+          ## Available Examples
+          
+          EOF
+          
+          # Generate documentation for each example
+          for workflow in examples/*.yaml; do
+            FILENAME=$(basename "$workflow")
+            WORKFLOW_NAME=$(grep "^name:" "$workflow" | cut -d' ' -f2- | tr -d '"')
+            DESCRIPTION=$(grep "^description:" "$workflow" | cut -d' ' -f2- | tr -d '"')
+            
+            echo "### $FILENAME" >> docs/examples/README.md
+            echo "- **Name**: $WORKFLOW_NAME" >> docs/examples/README.md
+            echo "- **Description**: $DESCRIPTION" >> docs/examples/README.md
+            echo "- **File**: [\`$FILENAME\`](../../examples/$FILENAME)" >> docs/examples/README.md
+            echo "" >> docs/examples/README.md
+          done
+          
+          echo "Example documentation generated at docs/examples/README.md"
+
+      - name: Upload example documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: example-documentation
+          path: docs/examples/
+          retention-days: 30
+
+  # Deploy documentation to GitHub Pages
+  deploy-docs:
+    name: Deploy to GitHub Pages
+    needs: [generate-docs, validate-examples]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
+    permissions:
+      pages: write
+      id-token: write
+      contents: read
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download API documentation
+        uses: actions/download-artifact@v4
+        with:
+          name: api-documentation
+          path: api-docs
+
+      - name: Download example documentation
+        uses: actions/download-artifact@v4
+        with:
+          name: example-documentation
+          path: example-docs
+
+      - name: Setup documentation site
+        run: |
+          echo "Setting up documentation site..."
+          mkdir -p site
+          
+          # Copy API docs
+          cp -r api-docs/* site/
+          
+          # Copy example docs
+          mkdir -p site/examples
+          cp -r example-docs/* site/examples/
+          
+          # Create main index.html
+          cat > site/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Wayfinder Documentation</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 2rem;
+                line-height: 1.6;
+                color: #333;
+              }
+              .header {
+                text-align: center;
+                margin-bottom: 2rem;
+                padding-bottom: 1rem;
+                border-bottom: 1px solid #eee;
+              }
+              .nav {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 1rem;
+                margin: 2rem 0;
+              }
+              .nav-item {
+                padding: 1.5rem;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                text-decoration: none;
+                color: inherit;
+                transition: all 0.2s;
+              }
+              .nav-item:hover {
+                border-color: #007acc;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(0,122,204,0.15);
+              }
+              .nav-item h3 {
+                margin: 0 0 0.5rem 0;
+                color: #007acc;
+              }
+              .nav-item p {
+                margin: 0;
+                color: #666;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>🧭 Wayfinder Documentation</h1>
+              <p>A CLI-based workflow engine for executing declarative YAML workflows</p>
+            </div>
+            
+            <div class="nav">
+              <a href="wayfinder/index.html" class="nav-item">
+                <h3>📚 API Documentation</h3>
+                <p>Complete API reference and module documentation</p>
+              </a>
+              
+              <a href="examples/" class="nav-item">
+                <h3>📝 Examples</h3>
+                <p>Example workflows and usage patterns</p>
+              </a>
+            </div>
+            
+            <div style="text-align: center; margin-top: 3rem; color: #666;">
+              <p>Generated from <a href="https://github.com/sarlalian/wayfinder">wayfinder</a> source code</p>
+            </div>
+          </body>
+          </html>
+          EOF
+          
+          echo "Documentation site prepared"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v3
+
+  # Generate README badges and stats
+  update-readme:
+    name: Update README
+    needs: [generate-docs, validate-examples]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Generate project statistics
+        run: |
+          echo "Generating project statistics..."
+          
+          # Count lines of code
+          LOC=$(find src -name "*.rs" -exec cat {} \; | wc -l)
+          
+          # Count test files
+          TEST_FILES=$(find tests -name "*.rs" | wc -l)
+          
+          # Count examples
+          EXAMPLES=$(ls examples/*.yaml 2>/dev/null | wc -l || echo "0")
+          
+          # Get dependency count
+          DEPS=$(grep -c "^[a-zA-Z]" Cargo.toml)
+          
+          echo "Lines of code: $LOC"
+          echo "Test files: $TEST_FILES"
+          echo "Examples: $EXAMPLES"
+          echo "Dependencies: $DEPS"
+          
+          # Save stats for potential README updates
+          cat > project-stats.txt << EOF
+          LOC=$LOC
+          TEST_FILES=$TEST_FILES
+          EXAMPLES=$EXAMPLES
+          DEPS=$DEPS
+          EOF
+
+      - name: Upload project statistics
+        uses: actions/upload-artifact@v4
+        with:
+          name: project-statistics
+          path: project-stats.txt
+
+  # Report documentation status
+  report-status:
+    name: Documentation Report
+    needs: [generate-docs, validate-examples, deploy-docs, update-readme]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Generate Documentation Report
+        run: |
+          echo "## 📚 Documentation Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Status" >> $GITHUB_STEP_SUMMARY
+          echo "- **API Documentation**: ${{ needs.generate-docs.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Example Validation**: ${{ needs.validate-examples.result }}" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ github.ref }}" = "refs/heads/main" ] && [ "${{ github.event_name }}" = "push" ]; then
+            echo "- **GitHub Pages Deployment**: ${{ needs.deploy-docs.result }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **README Updates**: ${{ needs.update-readme.result }}" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "${{ needs.deploy-docs.result }}" = "success" ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
+              echo "- [📚 API Documentation](https://sarlalian.github.io/wayfinder/)" >> $GITHUB_STEP_SUMMARY
+              echo "- [📝 Examples](https://sarlalian.github.io/wayfinder/examples/)" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.generate-docs.result }}" != "success" ]; then
+            echo "- 🔧 Fix API documentation generation issues" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ needs.validate-examples.result }}" != "success" ]; then
+            echo "- 🔧 Fix example validation issues" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ needs.generate-docs.result }}" = "success" ] && [ "${{ needs.validate-examples.result }}" = "success" ]; then
+            echo "- ✅ All documentation tasks completed successfully!" >> $GITHUB_STEP_SUMMARY
+          fi

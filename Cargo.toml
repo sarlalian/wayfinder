@@ -1,0 +1,82 @@
+[package]
+name = "wayfinder"
+version = "0.1.0"
+edition = "2021"
+authors = ["The Dude <dude@sarlalian.com>"]
+description = "A CLI-based workflow engine for executing declarative YAML workflows"
+license = "MIT"
+
+[dependencies]
+# CLI and configuration
+clap = { version = "4.4", features = ["derive", "env"] }
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+futures = "0.3"
+
+# Serialization and parsing
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+serde_json = "1.0"
+indexmap = { version = "2.0", features = ["serde"] }
+
+# Template engine
+handlebars = "4.4"
+
+# Dependency graph
+petgraph = "0.6"
+
+# Utilities
+url = "2.4"
+regex = "1.10"
+chrono = { version = "0.4", features = ["serde"] }
+hostname = "0.3"
+uuid = { version = "1.0", features = ["v4"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Compression
+flate2 = "1.0"
+bzip2 = "0.4"
+xz2 = "0.1"
+lzma-rs = "0.3"
+tar = "0.4"
+glob-match = "0.2"
+walkdir = "2.4"
+
+# Cryptography
+sha2 = "0.10"
+md5 = "0.7"
+hex = "0.4"
+base64 = "0.21"
+
+# AWS SDK
+aws-config = "0.55"
+aws-sdk-s3 = "0.28"
+aws-sdk-ses = "0.28"
+
+# HTTP client
+reqwest = { version = "0.11", features = ["json"] }
+
+# Email
+lettre = "0.10"
+
+# Async trait
+async-trait = "0.1"
+
+# Directory utilities
+dirs = "5.0"
+
+# Human-readable time parsing
+humantime-serde = "1.1"
+
+# Temporary file creation
+tempfile = "3.8"
+
+[dev-dependencies]
+tempfile = "3.8"
+tokio-test = "0.4"

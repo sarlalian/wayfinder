@@ -1,0 +1,58 @@
+name: complex-workflow
+description: A complex workflow template with multiple task types
+
+variables:
+  environment: "{{ env }}"
+  timestamp: "{{ timestamp }}"
+  version: "1.0.0"
+
+tasks:
+  prepare:
+    type: command
+    config:
+      command: mkdir
+      args: ["-p", "./temp"]
+    required: true
+
+  create_file:
+    type: command
+    depends_on: [prepare]
+    config:
+      command: echo
+      args: ["Sample content for {{ variables.environment }}"]
+      stdout_file: "./temp/sample.txt"
+    required: true
+
+  compress_file:
+    type: compress
+    depends_on: [create_file]
+    config:
+      input_path: "./temp/sample.txt"
+      output_path: "./temp/sample.txt.bz2"
+      compression_type: bzip2
+      preserve_original: false
+    required: true
+
+  checksum:
+    type: checksum
+    depends_on: [compress_file]
+    config:
+      input_path: "./temp/sample.txt.bz2"
+      output_path: "./temp/sample.txt.bz2.checksum"
+      algorithm: sha256
+    required: false
+
+  cleanup:
+    type: command
+    depends_on: [checksum]
+    config:
+      command: rm
+      args: ["-f", "./temp/sample.txt*"]
+    required: false
+
+output:
+  destination: "file://./temp/output/{{ workflow.name }}-{{ variables.timestamp }}.json"
+
+on_error:
+  continue: false
+  cleanup_tasks: [cleanup]

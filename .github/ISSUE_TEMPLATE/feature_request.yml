@@ -1,0 +1,147 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a new feature! Your ideas help make Wayfinder better for everyone.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Feature Summary
+      description: A clear and concise description of the feature you'd like to see
+      placeholder: Briefly describe the feature...
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why do you want this feature? What problem does it solve?
+      placeholder: |
+        I'm always frustrated when...
+        This would help me to...
+        My use case is...
+    validations:
+      required: true
+
+  - type: textarea
+    id: detailed-description
+    attributes:
+      label: Detailed Description
+      description: Provide a detailed description of how you envision this feature working
+      placeholder: |
+        The feature should work by...
+        Users would be able to...
+        Configuration would look like...
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Usage Examples
+      description: If applicable, provide examples of how this feature would be used
+      placeholder: |
+        ```yaml
+        # Example workflow configuration
+        name: example
+        tasks:
+          new_task_type:
+            type: your-new-feature
+            config:
+              option1: value1
+        ```
+      render: yaml
+
+  - type: dropdown
+    id: feature-type
+    attributes:
+      label: Feature Type
+      description: What type of feature is this?
+      options:
+        - "New task type"
+        - "CLI enhancement"
+        - "Template engine feature"
+        - "Configuration option"
+        - "Performance improvement"
+        - "Developer experience"
+        - "Documentation improvement"
+        - "Other"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - "Nice to have"
+        - "Would be helpful"
+        - "Important for my workflow"
+        - "Critical/blocking"
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered alternative solutions or workarounds?
+      placeholder: |
+        I could work around this by...
+        Alternative approaches might be...
+        Similar tools do this by...
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation Ideas
+      description: Do you have any ideas about how this could be implemented?
+      placeholder: |
+        This could be implemented by...
+        It might require changes to...
+        Similar to existing feature X...
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Are you interested in contributing to this feature?
+      options:
+        - label: I would like to work on implementing this feature
+          required: false
+        - label: I can help with testing this feature
+          required: false
+        - label: I can help with documentation for this feature
+          required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or references that might be helpful
+      placeholder: |
+        Links to similar features in other tools:
+        Screenshots or mockups:
+        Related issues or discussions:
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues and discussions to make sure this feature hasn't been requested already
+          required: true
+        - label: I have provided sufficient detail for the development team to understand the request
+          required: true
+        - label: This feature aligns with Wayfinder's goals as a workflow engine
+          required: true

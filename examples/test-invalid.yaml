@@ -1,0 +1,8 @@
+name: test-invalid
+description: Test workflow with invalid task type
+
+tasks:
+  invalid_task:
+    type: invalid_type_that_does_not_exist
+    config:
+      test: value

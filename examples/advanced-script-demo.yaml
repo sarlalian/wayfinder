@@ -1,0 +1,314 @@
+# ABOUTME: Advanced example demonstrating complex script functionality with error handling
+# ABOUTME: Shows conditional logic, parallel tasks, and comprehensive system operations
+
+name: advanced-script-demo
+description: Advanced demonstration of script functionality with error handling and conditional logic
+version: "2.0"
+author: "Wayfinder Examples"
+
+variables:
+  environment: "{{env 'ENVIRONMENT' 'development'}}"
+  service_name: "wayfinder-api"
+  health_check_timeout: "30"
+  deployment_strategy: "rolling"
+  notification_webhook: "{{env 'SLACK_WEBHOOK' ''}}"
+
+tasks:
+  # Pre-flight checks with comprehensive validation
+  preflight_checks:
+    type: command
+    description: "Comprehensive pre-deployment validation"
+    config:
+      script: |
+        #!/bin/bash
+        set -euo pipefail
+
+        echo "🔍 Running pre-flight checks for {{variables.service_name}}"
+        echo "Environment: {{variables.environment}}"
+        echo "Strategy: {{variables.deployment_strategy}}"
+        echo "Timestamp: {{timestamp}}"
+        echo "Host: {{system.hostname}} ({{system.os}}/{{system.arch}})"
+        echo "User: {{system.user}}"
+        echo "Working Directory: {{system.pwd}}"
+
+        # Create results directory
+        RESULTS_DIR="./preflight-results"
+        mkdir -p "$RESULTS_DIR"
+
+        echo "📋 System Requirements Check:"
+
+        # Check available disk space
+        DISK_USAGE=$(df . | tail -1 | awk '{print $5}' | sed 's/%//')
+        echo "  - Disk usage: ${DISK_USAGE}%"
+        if [ "$DISK_USAGE" -gt 90 ]; then
+            echo "  ❌ WARNING: Disk usage is high (${DISK_USAGE}%)"
+        else
+            echo "  ✅ Disk space OK"
+        fi
+
+        # Check memory
+        if command -v free > /dev/null 2>&1; then
+            FREE_MEM=$(free -m | grep '^Mem:' | awk '{print $7}')
+            echo "  - Available memory: ${FREE_MEM}MB"
+            echo "  ✅ Memory check completed"
+        else
+            echo "  - Memory check skipped (free command not available)"
+        fi
+
+        # Network connectivity check
+        echo "  - Network connectivity: Testing..."
+        if ping -c 1 8.8.8.8 > /dev/null 2>&1; then
+            echo "  ✅ Network connectivity OK"
+        else
+            echo "  ❌ Network connectivity issues detected"
+        fi
+
+        # Save results
+        echo "Preflight check completed at {{timestamp}}" > "$RESULTS_DIR/preflight-{{timestamp '%Y%m%d-%H%M%S'}}.txt"
+        echo "Environment: {{variables.environment}}" >> "$RESULTS_DIR/preflight-{{timestamp '%Y%m%d-%H%M%S'}}.txt"
+        echo "Service: {{variables.service_name}}" >> "$RESULTS_DIR/preflight-{{timestamp '%Y%m%d-%H%M%S'}}.txt"
+
+        echo "🎯 Pre-flight checks completed successfully!"
+      shell: /bin/bash
+      env:
+        DEBIAN_FRONTEND: "noninteractive"
+    required: true
+    timeout_seconds: 120
+
+  # Conditional deployment preparation based on environment
+  deployment_preparation:
+    type: command
+    description: "Prepare deployment based on environment and strategy"
+    config:
+      script: |
+        #!/bin/bash
+        set -euo pipefail
+
+        SERVICE_NAME="{{variables.service_name}}"
+        ENVIRONMENT="{{variables.environment}}"
+        STRATEGY="{{variables.deployment_strategy}}"
+
+        echo "🚀 Preparing deployment for $SERVICE_NAME"
+        echo "Environment: $ENVIRONMENT"
+        echo "Strategy: $STRATEGY"
+
+        # Create deployment directory structure
+        DEPLOY_DIR="./deployments/$ENVIRONMENT/{{timestamp '%Y%m%d-%H%M%S'}}"
+        mkdir -p "$DEPLOY_DIR"
+
+        # Environment-specific preparation
+        case "$ENVIRONMENT" in
+            "production")
+                echo "📦 Production deployment preparation:"
+                echo "  - Creating production configs..."
+                echo "  - Setting up load balancer configs..."
+                echo "  - Configuring monitoring alerts..."
+                echo "  - Setting up rollback procedures..."
+
+                # Create production-specific files
+                echo "production: true" > "$DEPLOY_DIR/config.yaml"
+                echo "replicas: 3" >> "$DEPLOY_DIR/config.yaml"
+                echo "resources.limits.memory: 2Gi" >> "$DEPLOY_DIR/config.yaml"
+                ;;
+
+            "staging")
+                echo "🧪 Staging deployment preparation:"
+                echo "  - Creating staging configs..."
+                echo "  - Setting up test data..."
+                echo "  - Configuring debug logging..."
+
+                echo "staging: true" > "$DEPLOY_DIR/config.yaml"
+                echo "replicas: 2" >> "$DEPLOY_DIR/config.yaml"
+                echo "debug: true" >> "$DEPLOY_DIR/config.yaml"
+                ;;
+
+            *)
+                echo "🔧 Development deployment preparation:"
+                echo "  - Creating development configs..."
+                echo "  - Setting up hot reload..."
+                echo "  - Configuring verbose logging..."
+
+                echo "development: true" > "$DEPLOY_DIR/config.yaml"
+                echo "replicas: 1" >> "$DEPLOY_DIR/config.yaml"
+                echo "hotReload: true" >> "$DEPLOY_DIR/config.yaml"
+                ;;
+        esac
+
+        # Strategy-specific preparation
+        if [ "$STRATEGY" = "rolling" ]; then
+            echo "📈 Rolling deployment strategy selected"
+            echo "maxUnavailable: 1" >> "$DEPLOY_DIR/config.yaml"
+            echo "maxSurge: 1" >> "$DEPLOY_DIR/config.yaml"
+        fi
+
+        # Save deployment metadata
+        cat > "$DEPLOY_DIR/metadata.json" <<EOF
+        {
+          "service": "$SERVICE_NAME",
+          "environment": "$ENVIRONMENT",
+          "strategy": "$STRATEGY",
+          "timestamp": "{{timestamp}}",
+          "host": "{{system.hostname}}",
+          "user": "{{system.user}}",
+          "workflow": "{{workflow.name}}"
+        }
+        EOF
+
+        echo "✅ Deployment preparation completed"
+        echo "📁 Deployment directory: $DEPLOY_DIR"
+
+        # List prepared files
+        echo "📋 Prepared files:"
+        ls -la "$DEPLOY_DIR"
+      shell: /bin/bash
+    depends_on: [preflight_checks]
+    required: true
+    timeout_seconds: 180
+
+  # Health check with retry logic
+  health_check:
+    type: command
+    description: "Perform health checks with retry logic"
+    config:
+      script: |
+        #!/bin/bash
+        set -euo pipefail
+
+        SERVICE_NAME="{{variables.service_name}}"
+        TIMEOUT={{variables.health_check_timeout}}
+        MAX_RETRIES=5
+        RETRY_INTERVAL=5
+
+        echo "🏥 Health check for $SERVICE_NAME (timeout: ${TIMEOUT}s)"
+
+        # Simulate health check with retry logic
+        for attempt in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $attempt/$MAX_RETRIES: Checking service health..."
+
+            # Simulate varying health check results
+            if [ $attempt -eq 1 ] && [ "{{variables.environment}}" = "development" ]; then
+                echo "  ⏳ Service starting up... (simulated)"
+                sleep 2
+            elif [ $attempt -eq 2 ]; then
+                echo "  🔄 Service initializing... (simulated)"
+                sleep 1
+            else
+                echo "  ✅ Service is healthy!"
+
+                # Create health check report
+                HEALTH_DIR="./health-checks"
+                mkdir -p "$HEALTH_DIR"
+
+                cat > "$HEALTH_DIR/health-{{timestamp '%Y%m%d-%H%M%S'}}.json" <<EOF
+        {
+          "service": "$SERVICE_NAME",
+          "status": "healthy",
+          "timestamp": "{{timestamp}}",
+          "attempts": $attempt,
+          "environment": "{{variables.environment}}",
+          "host": "{{system.hostname}}"
+        }
+        EOF
+
+                echo "📊 Health check completed successfully after $attempt attempts"
+                exit 0
+            fi
+
+            if [ $attempt -lt $MAX_RETRIES ]; then
+                echo "  ⏰ Waiting ${RETRY_INTERVAL}s before next attempt..."
+                sleep $RETRY_INTERVAL
+            fi
+        done
+
+        echo "❌ Health check failed after $MAX_RETRIES attempts"
+        exit 1
+      shell: /bin/bash
+    depends_on: [deployment_preparation]
+    required: true
+    timeout_seconds: 300
+
+  # Conditional notification
+  notification:
+    type: command
+    description: "Send deployment notification if webhook is configured"
+    config:
+      script: |
+        #!/bin/bash
+        set -euo pipefail
+
+        WEBHOOK="{{variables.notification_webhook}}"
+        SERVICE_NAME="{{variables.service_name}}"
+        ENVIRONMENT="{{variables.environment}}"
+
+        if [ -n "$WEBHOOK" ] && [ "$WEBHOOK" != "" ]; then
+            echo "📢 Sending deployment notification to Slack..."
+
+            # Create notification payload (simulate - would use curl in real scenario)
+            cat > "./notification-payload.json" <<EOF
+        {
+          "text": "🚀 Deployment Completed",
+          "attachments": [
+            {
+              "color": "good",
+              "fields": [
+                {"title": "Service", "value": "$SERVICE_NAME", "short": true},
+                {"title": "Environment", "value": "$ENVIRONMENT", "short": true},
+                {"title": "Host", "value": "{{system.hostname}}", "short": true},
+                {"title": "Timestamp", "value": "{{timestamp}}", "short": true}
+              ]
+            }
+          ]
+        }
+        EOF
+
+            echo "✅ Notification payload created (would send to: $WEBHOOK)"
+            echo "📋 Notification content:"
+            cat "./notification-payload.json"
+
+            # Clean up
+            rm "./notification-payload.json"
+        else
+            echo "📭 No webhook configured - skipping notification"
+        fi
+
+        echo "🎉 Deployment of $SERVICE_NAME to $ENVIRONMENT completed successfully!"
+        echo "📅 Completed at: {{timestamp}}"
+        echo "🖥️  Host: {{system.hostname}}"
+        echo "👤 User: {{system.user}}"
+      shell: /bin/bash
+    depends_on: [health_check]
+    required: false
+    timeout_seconds: 60
+
+  # Cleanup task that runs on error
+  cleanup:
+    type: command
+    description: "Cleanup resources on failure"
+    config:
+      script: |
+        #!/bin/bash
+        set -euo pipefail
+
+        echo "🧹 Running cleanup procedures..."
+
+        # Clean up temporary directories
+        for dir in "./preflight-results" "./deployments" "./health-checks"; do
+            if [ -d "$dir" ]; then
+                echo "  - Cleaning up $dir"
+                rm -rf "$dir"
+            fi
+        done
+
+        # Log cleanup completion
+        echo "✅ Cleanup completed at {{timestamp}}"
+        echo "🖥️  Host: {{system.hostname}}"
+      shell: /bin/bash
+    required: false
+    timeout_seconds: 30
+
+output:
+  destination: "file://./temp/output/{{workflow.name}}-{{variables.environment}}-{{timestamp '%Y%m%d-%H%M%S'}}.json"
+
+on_error:
+  continue: false
+  cleanup_tasks: [cleanup]

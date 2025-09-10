@@ -1,0 +1,75 @@
+# Retry mechanism example workflow
+name: retry_example
+description: Demonstrates retry mechanisms for handling flaky operations
+version: "1.0"
+author: "Wayfinder Examples"
+
+variables:
+  max_retries: "3"
+  service_url: "https://api.example.com"
+  timeout_seconds: "30"
+
+tasks:
+  - id: stable_task
+    type: command
+    description: "A stable task that always succeeds"
+    config:
+      command: echo
+      args: ["Stable task executed successfully"]
+    timeout: 30s
+
+  - id: flaky_network_call
+    type: command
+    description: "Simulates a flaky network call that might fail"
+    config:
+      command: bash
+      args: ["-c", "if [ $(($RANDOM % 3)) -eq 0 ]; then echo 'Network call succeeded'; exit 0; else echo 'Network call failed'; exit 1; fi"]
+    depends_on:
+      - stable_task
+    timeout: 30s
+    retry:
+      max_attempts: 3
+      delay: 5s
+      backoff_multiplier: 2.0
+      max_delay: 30s
+
+  - id: file_operation_with_retry
+    type: command
+    description: "File operation that might fail due to resource contention"
+    config:
+      command: bash
+      args: ["-c", "if [ $(($RANDOM % 4)) -eq 0 ]; then echo 'File operation succeeded' > /tmp/workflow_test.txt; else echo 'File operation failed'; exit 1; fi"]
+    depends_on:
+      - stable_task
+    timeout: 30s
+    retry:
+      max_attempts: 5
+      delay: 2s
+      backoff_multiplier: 1.5
+      max_delay: 20s
+
+  - id: verify_results
+    type: command
+    description: "Verify that previous operations completed successfully"
+    config:
+      command: bash
+      args: ["-c", "if [ -f /tmp/workflow_test.txt ]; then echo 'Verification passed: File exists'; cat /tmp/workflow_test.txt; else echo 'Verification failed: File not found'; exit 1; fi"]
+    depends_on:
+      - flaky_network_call
+      - file_operation_with_retry
+    timeout: 30s
+    retry:
+      max_attempts: 2
+      delay: 1s
+      backoff_multiplier: 1.0
+
+  - id: cleanup_test_files
+    type: command
+    description: "Clean up test files"
+    config:
+      command: rm
+      args: ["-f", "/tmp/workflow_test.txt"]
+    depends_on:
+      - verify_results
+    timeout: 30s
+    # No retry for cleanup - if it fails, it's not critical

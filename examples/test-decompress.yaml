@@ -1,0 +1,12 @@
+name: test-decompress
+description: Test workflow with decompress task (not implemented)
+
+tasks:
+  decompress_task:
+    type: decompress
+    config:
+      input_path: "./test.bz2"
+      output_path: "./test.txt"
+
+output:
+  destination: "stdout://"

@@ -1,0 +1,31 @@
+name: template-test
+description: Test template processing
+
+variables:
+  test_env: "{{env 'USER' 'unknown'}}"
+  test_timestamp: "{{timestamp '%Y-%m-%d'}}"
+
+tasks:
+  simple_test:
+    type: command
+    description: "Test simple template in command"
+    config:
+      command: echo
+      args: ["User: {{variables.test_env}}, Date: {{variables.test_timestamp}}"]
+    required: true
+
+  script_test:
+    type: command
+    description: "Test template in script"
+    config:
+      script: |
+        echo "Testing templates in script:"
+        echo "User from env helper: {{env 'USER' 'unknown'}}"
+        echo "Current timestamp: {{timestamp '%Y-%m-%d %H:%M:%S'}}"
+        echo "Workflow name: {{workflow.name}}"
+        echo "Variable test_env: {{variables.test_env}}"
+    required: true
+    depends_on: [simple_test]
+
+output:
+  destination: "file://./temp/output/{{workflow.name}}-{{timestamp '%Y%m%d'}}.json"

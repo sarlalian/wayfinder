@@ -1,0 +1,89 @@
+name: mysql-backup
+description: Enhanced MySQL backup workflow using script functionality
+
+variables:
+  environment: "{{env 'ENVIRONMENT' 'development'}}"
+  database_name: "wayfindertest"
+  mysql_user: "root"
+  mysql_password: "root"
+  mysql_port: "3307"
+  backup_retention_days: "7"
+
+tasks:
+  prepare:
+    type: command
+    description: "Prepare backup directory structure"
+    config:
+      script: |
+        BACKUP_DIR="./temp/backups/{{variables.environment}}/{{timestamp '%Y-%m-%d'}}"
+        echo "Creating backup directory: $BACKUP_DIR"
+        mkdir -p "$BACKUP_DIR"
+        echo "✓ Backup directory created: $BACKUP_DIR"
+      shell: /bin/bash
+    required: true
+    timeout_seconds: 30
+
+  dbdump:
+    type: command
+    description: "Create MySQL database dump with compression"
+    config:
+      script: |
+        #!/bin/bash
+        set -euo pipefail
+
+        BACKUP_DIR="./temp/backups/"
+        BACKUP_FILE="{{variables.database_name}}-{{timestamp '%Y%m%d'}}.sql"
+        MYSQL_USER="{{variables.mysql_user}}"
+        MYSQL_PORT="{{variables.mysql_port}}"
+        DATABASE="{{variables.database_name}}"
+
+        echo "Starting MySQL backup..."
+        echo "Database: $DATABASE"
+        echo "User: $MYSQL_USER"
+        echo "Port: $MYSQL_PORT"
+        echo "Backup file: $BACKUP_FILE"
+
+        # Create the dump (using mock data for demo - in real usage this would be actual mysqldump)
+        echo "-- MySQL dump for $DATABASE created on {{timestamp}}" > "$BACKUP_DIR/$BACKUP_FILE"
+        echo "-- Environment: {{variables.environment}}" >> "$BACKUP_DIR/$BACKUP_FILE"
+        echo "-- Host: {{system.hostname}}" >> "$BACKUP_DIR/$BACKUP_FILE"
+
+        # In real scenario, uncomment this line:
+        mysqldump -u "$MYSQL_USER" -p"{{variables.mysql_password}}" --port="$MYSQL_PORT" "$DATABASE" > "$BACKUP_DIR/$BACKUP_FILE"
+
+        echo "✓ Database dump completed: $BACKUP_DIR/$BACKUP_FILE"
+
+        # Show file size
+        du -h "$BACKUP_DIR/$BACKUP_FILE" | awk '{print "Backup size: " $1}'
+      shell: /bin/bash
+      env:
+        MYSQL_PWD: "{{variables.mysql_password}}"
+    depends_on: [prepare]
+    required: true
+    timeout_seconds: 300
+
+  compress_file:
+    type: compress
+    config:
+      input_path: "./temp/backups/{{variables.database_name}}-{{timestamp '%Y%m%d'}}.sql"
+      output_path: "./temp/backups/{{variables.database_name}}-{{timestamp '%Y%m%d'}}.sql.bz2"
+      compression_type: bzip2
+      preserve_original: false
+    depends_on: [dbdump]
+    required: true
+
+  checksum_file:
+    type: checksum
+    depends_on: [compress_file]
+    config:
+      input_path: "./temp/backups/{{variables.database_name}}-{{timestamp '%Y%m%d'}}.sql.bz2"
+      output_path: "./temp/backups/{{variables.database_name}}-{{timestamp '%Y%m%d'}}.sql.bz2.checksum"
+      algorithm: sha256
+    required: false
+
+output:
+  destination: "file://./temp/output/{{workflow.name}}-{{timestamp '%Y%m%d-%H%M%S'}}.json"
+
+on_error:
+  continue: false
+  cleanup_tasks: [cleanup_old_backups]

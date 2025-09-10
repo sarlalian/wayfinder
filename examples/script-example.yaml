@@ -1,0 +1,135 @@
+# ABOUTME: Example workflow showcasing the new script functionality
+# ABOUTME: Demonstrates both simple commands and complex shell scripts with template processing
+
+name: script-example
+description: Demonstrates the enhanced command task with script support
+version: "1.0"
+author: "Wayfinder Examples"
+
+variables:
+  project_name: "wayfinder-demo"
+  backup_prefix: "backup"
+  max_backups: "5"
+  environment: "production"
+
+tasks:
+  # Simple command example (backward compatible)
+  welcome:
+    type: command
+    description: "Simple welcome message using traditional command syntax"
+    config:
+      command: echo
+      args: ["Starting {{variables.project_name}} deployment in {{variables.environment}}"]
+    required: true
+    timeout_seconds: 30
+
+  # Script example with system information
+  system_info:
+    type: command
+    description: "Collect system information using shell script"
+    config:
+      script: |
+        echo "=== System Information ==="
+        echo "Hostname: {{system.hostname}}"
+        echo "OS: {{system.os}}"
+        echo "Architecture: {{system.arch}}"
+        echo "User: {{system.user}}"
+        echo "Working Directory: {{system.pwd}}"
+        echo "Timestamp: {{timestamp '%Y-%m-%d %H:%M:%S'}}"
+        echo "Workflow: {{workflow.name}}"
+        echo "==========================="
+      shell: /bin/bash
+    depends_on: [welcome]
+    required: true
+    timeout_seconds: 60
+
+  # Complex backup script with template variables
+  backup_management:
+    type: command
+    description: "Manage backups with cleanup using advanced shell script"
+    config:
+      script: |
+        #!/bin/bash
+        set -euo pipefail
+
+        BACKUP_DIR="/tmp/{{variables.project_name}}-backups"
+        BACKUP_NAME="{{variables.backup_prefix}}-{{timestamp '%Y%m%d-%H%M%S'}}"
+        MAX_BACKUPS={{variables.max_backups}}
+
+        echo "Creating backup directory: $BACKUP_DIR"
+        mkdir -p "$BACKUP_DIR"
+
+        # Create a sample backup
+        echo "Creating backup: $BACKUP_NAME"
+        echo "Backup created on {{timestamp}} for {{variables.project_name}}" > "$BACKUP_DIR/$BACKUP_NAME.txt"
+        echo "Environment: {{variables.environment}}" >> "$BACKUP_DIR/$BACKUP_NAME.txt"
+        echo "System: {{system.hostname}} ({{system.os}}/{{system.arch}})" >> "$BACKUP_DIR/$BACKUP_NAME.txt"
+
+        # List all backups
+        echo "Current backups:"
+        ls -la "$BACKUP_DIR" || echo "No existing backups found"
+
+        # Cleanup old backups (simulate with echo commands)
+        echo "Would cleanup backups beyond $MAX_BACKUPS limit"
+        echo "Backup management completed successfully"
+
+        # Clean up the demo directory
+        rm -rf "$BACKUP_DIR"
+      shell: /bin/bash
+      env:
+        PATH: "/usr/local/bin:/usr/bin:/bin"
+        LANG: "en_US.UTF-8"
+    depends_on: [system_info]
+    required: true
+    timeout_seconds: 120
+
+  # Script with conditional logic using environment variables
+  deployment_check:
+    type: command
+    description: "Check deployment readiness with conditional logic"
+    config:
+      script: |
+        #!/bin/bash
+
+        ENV="{{variables.environment}}"
+        PROJECT="{{variables.project_name}}"
+
+        echo "Performing deployment checks for $PROJECT in $ENV environment"
+
+        # Simulate different behavior based on environment
+        if [ "$ENV" = "production" ]; then
+            echo "✓ Production checks:"
+            echo "  - Verifying SSL certificates..."
+            echo "  - Checking database connectivity..."
+            echo "  - Validating backup systems..."
+            echo "  - All production checks passed!"
+        else
+            echo "✓ Development/staging checks:"
+            echo "  - Basic connectivity test..."
+            echo "  - Development environment ready!"
+        fi
+
+        echo "Deployment readiness: PASSED"
+        echo "Ready to deploy $PROJECT to $ENV at {{timestamp}}"
+      shell: /bin/bash
+    depends_on: [backup_management]
+    required: true
+    timeout_seconds: 90
+
+  # Final status using simple command
+  completion:
+    type: command
+    description: "Final completion message"
+    config:
+      command: echo
+      args: ["🎉 Workflow {{workflow.name}} completed successfully! All {{variables.environment}} tasks finished."]
+    depends_on: [deployment_check]
+    required: true
+    timeout_seconds: 30
+
+output:
+  destination: "file://./temp/output/{{workflow.name}}-{{timestamp '%Y%m%d-%H%M%S'}}.json"
+
+on_error:
+  continue: false
+  cleanup_tasks: []

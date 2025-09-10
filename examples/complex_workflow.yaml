@@ -1,0 +1,236 @@
+# Complex workflow example with multiple task types and advanced features
+name: data_pipeline_example
+description: A comprehensive data processing pipeline demonstrating advanced workflow features
+version: "1.0"
+author: "Wayfinder Examples"
+
+variables:
+  environment: "production"
+  database_host: "db.example.com"
+  database_name: "analytics"
+  api_key: "your_api_key_here"
+  notification_email: "admin@example.com"
+  s3_bucket: "data-pipeline-results"
+  processing_date: "2024-01-01"
+
+tasks:
+  # Data validation and preparation
+  validate_env:
+    type: command
+    description: "Validate environment configuration"
+    config:
+      command: bash
+      args: ["-c", "echo 'Validating ${environment} environment' && echo 'Database: ${database_host}/${database_name}'"]
+    timeout: 30s
+
+  check_deps:
+    type: command
+    description: "Check required dependencies and services"
+    config:
+      command: bash
+      args: ["-c", "echo 'Checking system dependencies...' && echo 'All dependencies available'"]
+    depends_on:
+      - validate_environment
+    timeout: 45s
+
+  # Data extraction phase
+  extract_user_data:
+    type: command
+    description: "Extract user data from primary database"
+    config:
+      command: bash
+      args: ["-c", "echo 'Extracting user data for date: ${processing_date}' && sleep 2 && echo 'Extracted 10,000 user records'"]
+    depends_on:
+      - check_dependencies
+    timeout: 300s
+    retry:
+      max_attempts: 2
+      delay: 10s
+      backoff_multiplier: 2.0
+
+  extract_transaction_data:
+    type: command
+    description: "Extract transaction data from secondary database"
+    config:
+      command: bash
+      args: ["-c", "echo 'Extracting transaction data for date: ${processing_date}' && sleep 3 && echo 'Extracted 50,000 transaction records'"]
+    depends_on:
+      - check_dependencies
+    timeout: 300s
+    retry:
+      max_attempts: 2
+      delay: 10s
+      backoff_multiplier: 2.0
+
+  extract_external_data:
+    type: http
+    description: "Fetch external reference data via API"
+    config:
+      url: "https://api.example.com/reference-data"
+      method: "GET"
+      headers:
+        Authorization: "Bearer ${api_key}"
+        Content-Type: "application/json"
+    depends_on:
+      - check_dependencies
+    timeout: 120s
+    retry:
+      max_attempts: 3
+      delay: 5s
+      backoff_multiplier: 2.0
+
+  # Data transformation phase (parallel processing)
+  transform_user_data:
+    type: command
+    description: "Apply transformations to user data"
+    config:
+      command: bash
+      args: ["-c", "echo 'Transforming user data...' && sleep 2 && echo 'User data transformation complete'"]
+    depends_on:
+      - extract_user_data
+    timeout: 240s
+
+  transform_transaction_data:
+    type: command
+    description: "Apply transformations to transaction data"
+    config:
+      command: bash
+      args: ["-c", "echo 'Transforming transaction data...' && sleep 3 && echo 'Transaction data transformation complete'"]
+    depends_on:
+      - extract_transaction_data
+    timeout: 360s
+
+  enrich_with_external_data:
+    type: command
+    description: "Enrich internal data with external reference data"
+    config:
+      command: bash
+      args: ["-c", "echo 'Enriching data with external references...' && sleep 1 && echo 'Data enrichment complete'"]
+    depends_on:
+      - extract_external_data
+      - transform_user_data
+    timeout: 180s
+
+  # Data quality validation
+  validate_data_quality:
+    type: command
+    description: "Run data quality checks on transformed data"
+    config:
+      command: bash
+      args: ["-c", "echo 'Running data quality checks...' && echo 'Quality Score: 98.5%' && echo 'Data quality validation passed'"]
+    depends_on:
+      - transform_user_data
+      - transform_transaction_data
+      - enrich_with_external_data
+    timeout: 120s
+    retry:
+      max_attempts: 2
+      delay: 30s
+
+  # Data aggregation and analysis
+  generate_user_metrics:
+    type: command
+    description: "Generate user behavior metrics"
+    config:
+      command: bash
+      args: ["-c", "echo 'Generating user metrics...' && echo 'Active users: 8,500' && echo 'User metrics generated'"]
+    depends_on:
+      - validate_data_quality
+    timeout: 300s
+
+  generate_transaction_metrics:
+    type: command
+    description: "Generate transaction analytics"
+    config:
+      command: bash
+      args: ["-c", "echo 'Generating transaction metrics...' && echo 'Total volume: $2.5M' && echo 'Transaction metrics generated'"]
+    depends_on:
+      - validate_data_quality
+    timeout: 300s
+
+  generate_combined_report:
+    type: command
+    description: "Create comprehensive analytical report"
+    config:
+      command: bash
+      args: ["-c", "echo 'Creating combined analytics report...' && echo 'Report includes user and transaction insights' && echo 'Combined report generated'"]
+    depends_on:
+      - generate_user_metrics
+      - generate_transaction_metrics
+    timeout: 180s
+
+  # Data export and storage
+  export_to_s3:
+    type: s3
+    description: "Upload results to S3 storage"
+    config:
+      bucket: "${s3_bucket}"
+      key: "analytics/${processing_date}/combined_report.json"
+      region: "us-east-1"
+    depends_on:
+      - generate_combined_report
+    timeout: 240s
+    retry:
+      max_attempts: 3
+      delay: 10s
+      backoff_multiplier: 2.0
+
+  update_database:
+    type: command
+    description: "Update summary tables in database"
+    config:
+      command: bash
+      args: ["-c", "echo 'Updating summary tables in ${database_name}...' && echo 'Database update complete'"]
+    depends_on:
+      - generate_combined_report
+    timeout: 180s
+    retry:
+      max_attempts: 2
+      delay: 15s
+
+  # Notification and cleanup
+  send_completion_notification:
+    type: email
+    description: "Send completion notification to administrators"
+    config:
+      to: ["${notification_email}"]
+      subject: "Data Pipeline Completed - ${processing_date}"
+      body: |
+        Data pipeline processing completed successfully for ${processing_date}.
+
+        Environment: ${environment}
+
+        Processing Summary:
+        - User records processed: 10,000
+        - Transaction records processed: 50,000
+        - Data quality score: 98.5%
+        - Results uploaded to: s3://${s3_bucket}/analytics/${processing_date}/
+
+        All tasks completed successfully.
+    depends_on:
+      - export_to_s3
+      - update_database
+    timeout: 60s
+    retry:
+      max_attempts: 2
+      delay: 30s
+
+  cleanup_temporary_files:
+    type: command
+    description: "Clean up temporary processing files"
+    config:
+      command: bash
+      args: ["-c", "echo 'Cleaning up temporary files...' && echo 'Cleanup completed'"]
+    depends_on:
+      - send_completion_notification
+    timeout: 60s
+
+  archive_logs:
+    type: command
+    description: "Archive processing logs for audit purposes"
+    config:
+      command: bash
+      args: ["-c", "echo 'Archiving logs for ${processing_date}...' && echo 'Logs archived successfully'"]
+    depends_on:
+      - cleanup_temporary_files
+    timeout: 120s

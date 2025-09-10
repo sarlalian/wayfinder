@@ -1,0 +1,97 @@
+# Parallel workflow example demonstrating concurrent task execution
+name: parallel_processing_example
+description: Demonstrates parallel task execution and dependency management
+version: "1.0"
+author: "Wayfinder Examples"
+
+variables:
+  data_source: "example_dataset"
+  output_dir: "/tmp/workflow_output"
+  batch_size: "100"
+
+tasks:
+  # Initialization phase
+  setup_environment:
+    type: command
+    description: "Set up the processing environment"
+    config:
+      command: mkdir
+      args: ["-p", "${output_dir}"]
+    timeout: 30s
+
+  validate_input:
+    type: command
+    description: "Validate input data source"
+    config:
+      command: echo
+      args: ["Validating data source: ${data_source}"]
+    timeout: 30s
+
+  # Parallel processing phase - these tasks can run concurrently
+  process_batch_a:
+    type: command
+    description: "Process batch A of the dataset"
+    config:
+      command: bash
+      args: ["-c", "echo 'Processing batch A (${batch_size} items)' && sleep 2 && echo 'Batch A processing complete'"]
+    depends_on:
+      - setup_environment
+      - validate_input
+    timeout: 60s
+
+  process_batch_b:
+    type: command
+    description: "Process batch B of the dataset"
+    config:
+      command: bash
+      args: ["-c", "echo 'Processing batch B (${batch_size} items)' && sleep 2 && echo 'Batch B processing complete'"]
+    depends_on:
+      - setup_environment
+      - validate_input
+    timeout: 60s
+
+  process_batch_c:
+    type: command
+    description: "Process batch C of the dataset"
+    config:
+      command: bash
+      args: ["-c", "echo 'Processing batch C (${batch_size} items)' && sleep 2 && echo 'Batch C processing complete'"]
+    depends_on:
+      - setup_environment
+      - validate_input
+    timeout: 60s
+
+  # Aggregation phase - waits for all parallel processing to complete
+  aggregate_results:
+    type: command
+    description: "Aggregate results from all batches"
+    config:
+      command: bash
+      args: ["-c", "echo 'Aggregating results from all batches' && echo 'Total processed: $(echo '${batch_size} * 3' | bc) items'"]
+    depends_on:
+      - process_batch_a
+      - process_batch_b
+      - process_batch_c
+    timeout: 30s
+
+  # Final validation
+  validate_output:
+    type: command
+    description: "Validate aggregated output"
+    config:
+      command: echo
+      args: ["Output validation complete. Results saved to ${output_dir}"]
+    depends_on:
+      - aggregate_results
+    timeout: 30s
+
+  # Cleanup
+  cleanup:
+    type: command
+    description: "Clean up temporary resources"
+    config:
+      command: echo
+      args: ["Cleanup completed. Workflow finished successfully."]
+    depends_on:
+      - validate_output
+    timeout: 30s

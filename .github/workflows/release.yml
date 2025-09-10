@@ -1,0 +1,366 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.0.0)'
+        required: true
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Pre-release validation
+  validate-release:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      is_prerelease: ${{ steps.get_version.outputs.is_prerelease }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag or input
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/}
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Check if this is a prerelease (contains alpha, beta, rc, etc.)
+          if [[ $VERSION =~ -(alpha|beta|rc|pre) ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "Release version: $VERSION"
+
+      - name: Validate version format
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          if [[ ! $VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
+            echo "Error: Invalid version format: $VERSION"
+            echo "Expected format: v1.2.3 or v1.2.3-alpha.1"
+            exit 1
+          fi
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: release-validation
+
+      - name: Run full test suite
+        run: |
+          cargo fmt -- --check
+          cargo clippy --all-targets --all-features -- -D warnings
+          cargo test --all --verbose
+
+      - name: Validate Cargo.toml version matches tag
+        run: |
+          CARGO_VERSION="v$(grep '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')"
+          TAG_VERSION="${{ steps.get_version.outputs.version }}"
+          
+          echo "Cargo.toml version: $CARGO_VERSION"
+          echo "Git tag version: $TAG_VERSION"
+          
+          if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: Version mismatch between Cargo.toml ($CARGO_VERSION) and git tag ($TAG_VERSION)"
+            exit 1
+          fi
+
+  # Build release binaries for all supported platforms
+  build-release:
+    name: Build Release (${{ matrix.target }})
+    needs: validate-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            name: wayfinder-linux-x64
+            archive: tar.gz
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            name: wayfinder-linux-x64-musl
+            archive: tar.gz
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            name: wayfinder-linux-arm64
+            archive: tar.gz
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            name: wayfinder-macos-x64
+            archive: tar.gz
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            name: wayfinder-macos-arm64
+            archive: tar.gz
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            name: wayfinder-windows-x64
+            archive: zip
+          - target: aarch64-pc-windows-msvc
+            os: windows-latest
+            name: wayfinder-windows-arm64
+            archive: zip
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}-release
+
+      - name: Install cross-compilation dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config
+          
+          # Install musl tools for musl targets
+          if [[ "${{ matrix.target }}" == *"musl"* ]]; then
+            sudo apt-get install -y musl-tools
+          fi
+          
+          # Install cross-compilation tools for ARM64
+          if [[ "${{ matrix.target }}" == "aarch64-"* ]]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu
+          fi
+
+      - name: Configure cross-compilation (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }} --verbose
+
+      - name: Prepare release assets (Unix)
+        if: matrix.archive == 'tar.gz'
+        run: |
+          VERSION="${{ needs.validate-release.outputs.version }}"
+          ASSET_NAME="${{ matrix.name }}-$VERSION"
+          
+          # Create staging directory
+          mkdir -p "staging/$ASSET_NAME"
+          
+          # Copy binary
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            cp "target/${{ matrix.target }}/release/wayfinder.exe" "staging/$ASSET_NAME/"
+          else
+            cp "target/${{ matrix.target }}/release/wayfinder" "staging/$ASSET_NAME/"
+          fi
+          
+          # Copy additional files
+          cp README.md "staging/$ASSET_NAME/" 2>/dev/null || echo "README.md not found"
+          cp -r examples "staging/$ASSET_NAME/" 2>/dev/null || echo "examples directory not found"
+          
+          # Create archive
+          cd staging
+          tar -czf "../$ASSET_NAME.tar.gz" "$ASSET_NAME"
+          cd ..
+          
+          echo "ASSET_PATH=$ASSET_NAME.tar.gz" >> $GITHUB_ENV
+          echo "ASSET_NAME=$ASSET_NAME.tar.gz" >> $GITHUB_ENV
+
+      - name: Prepare release assets (Windows)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $VERSION = "${{ needs.validate-release.outputs.version }}"
+          $ASSET_NAME = "${{ matrix.name }}-$VERSION"
+          
+          # Create staging directory
+          New-Item -ItemType Directory -Path "staging\$ASSET_NAME" -Force
+          
+          # Copy binary
+          Copy-Item "target\${{ matrix.target }}\release\wayfinder.exe" "staging\$ASSET_NAME\"
+          
+          # Copy additional files
+          if (Test-Path "README.md") {
+              Copy-Item "README.md" "staging\$ASSET_NAME\"
+          }
+          if (Test-Path "examples") {
+              Copy-Item "examples" "staging\$ASSET_NAME\" -Recurse
+          }
+          
+          # Create zip archive
+          Compress-Archive -Path "staging\$ASSET_NAME" -DestinationPath "$ASSET_NAME.zip"
+          
+          echo "ASSET_PATH=$ASSET_NAME.zip" >> $env:GITHUB_ENV
+          echo "ASSET_NAME=$ASSET_NAME.zip" >> $env:GITHUB_ENV
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            sha256sum "$ASSET_NAME" > "$ASSET_NAME.sha256"
+          else
+            shasum -a 256 "$ASSET_NAME" > "$ASSET_NAME.sha256"
+          fi
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-${{ needs.validate-release.outputs.version }}
+          path: |
+            ${{ env.ASSET_PATH }}
+            ${{ env.ASSET_PATH }}.sha256
+
+  # Create GitHub release
+  create-release:
+    name: Create GitHub Release
+    needs: [validate-release, build-release]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          
+          # Move all artifacts to release-assets directory
+          find artifacts -name "*.tar.gz" -o -name "*.zip" -o -name "*.sha256" | while read file; do
+            cp "$file" release-assets/
+          done
+          
+          # List all assets for verification
+          echo "Release assets:"
+          ls -la release-assets/
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          VERSION="${{ needs.validate-release.outputs.version }}"
+          
+          # Try to extract release notes from CHANGELOG.md if it exists
+          if [ -f CHANGELOG.md ]; then
+            # Extract section between current version and previous version
+            NOTES=$(sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | head -n -1 | tail -n +2)
+            if [ -z "$NOTES" ]; then
+              NOTES="Release $VERSION - See CHANGELOG.md for details"
+            fi
+          else
+            # Generate basic release notes
+            NOTES="## What's Changed
+
+          Release $VERSION of Wayfinder - A CLI-based workflow engine for executing declarative YAML workflows.
+
+          ### Features
+          - Execute complex workflows with template support
+          - Multi-platform support (Linux, macOS, Windows)
+          - Comprehensive task types (commands, scripts, compression, checksum, etc.)
+          - AWS integration for S3 and SES
+          - Advanced template engine with helper functions
+
+          ### Installation
+          Download the appropriate binary for your platform from the assets below.
+
+          ### Full Changelog
+          See commit history for detailed changes."
+          fi
+          
+          # Save to file for GitHub release
+          echo "$NOTES" > release-notes.md
+          echo "notes_file=release-notes.md" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.validate-release.outputs.version }}
+          name: Release ${{ needs.validate-release.outputs.version }}
+          body_path: ${{ steps.release_notes.outputs.notes_file }}
+          draft: false
+          prerelease: ${{ needs.validate-release.outputs.is_prerelease }}
+          files: release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Publish to crates.io (only for stable releases)
+  publish-crate:
+    name: Publish to crates.io
+    needs: [validate-release, create-release]
+    runs-on: ubuntu-latest
+    if: needs.validate-release.outputs.is_prerelease == 'false'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: crates-publish
+
+      - name: Verify crate can be packaged
+        run: cargo package --verbose
+
+      - name: Publish to crates.io
+        run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+
+  # Post-release notifications and cleanup
+  post-release:
+    name: Post-Release Tasks
+    needs: [validate-release, create-release, publish-crate]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Release Summary
+        run: |
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ needs.validate-release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Prerelease**: ${{ needs.validate-release.outputs.is_prerelease }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Status**: ${{ needs.build-release.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release Created**: ${{ needs.create-release.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Crates.io Published**: ${{ needs.publish-crate.result }}" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Release Assets" >> $GITHUB_STEP_SUMMARY
+          echo "- Linux (x64, x64-musl, ARM64)" >> $GITHUB_STEP_SUMMARY
+          echo "- macOS (x64, ARM64)" >> $GITHUB_STEP_SUMMARY
+          echo "- Windows (x64, ARM64)" >> $GITHUB_STEP_SUMMARY
+          
+          echo "Release ${{ needs.validate-release.outputs.version }} completed successfully! 🎉"

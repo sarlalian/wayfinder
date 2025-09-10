@@ -1,0 +1,34 @@
+name: template-demo
+description: Demonstrates template functionality
+
+variables:
+  user: "{{ env \"USER\" \"unknown\" }}"
+  hostname: "{{ hostname }}"
+  timestamp: "{{ timestamp \"%Y-%m-%d_%H-%M-%S\" }}"
+  run_id: "{{ uuid }}"
+  greeting: "Hello from {{ variables.hostname }} on {{ timestamp }}"
+
+tasks:
+  show_info:
+    type: command
+    config:
+      command: echo
+      args:
+        - "User: {{ variables.user }}"
+        - "Host: {{ variables.hostname }}"
+        - "Time: {{ variables.timestamp }}"
+        - "Run ID: {{ variables.run_id }}"
+    required: true
+
+  create_file:
+    type: command
+    depends_on: [show_info]
+    config:
+      command: echo
+      args:
+        - "{{ variables.greeting }}"
+      stdout_file: "./temp/demo-{{ variables.timestamp }}.txt"
+    required: false
+
+output:
+  destination: "file://./temp/output/{{ workflow.name }}-{{ variables.timestamp }}.json"
