@@ -1152,6 +1152,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "hostname"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a56f203cd1c76362b69e3863fd987520ac36cf70a8c92627449b2f64a8cf7d65"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "windows-link 0.1.3",
+]
+
+[[package]]
 name = "http"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1470,7 +1481,7 @@ dependencies = [
  "email_address",
  "fastrand 1.9.0",
  "futures-util",
- "hostname",
+ "hostname 0.3.1",
  "httpdate",
  "idna 0.3.0",
  "mime",
@@ -2946,7 +2957,7 @@ dependencies = [
  "glob-match",
  "handlebars",
  "hex",
- "hostname",
+ "hostname 0.4.1",
  "humantime-serde",
  "indexmap",
  "lettre",
