@@ -838,8 +838,7 @@ impl MetricsReportGenerator {
         let metrics_json =
             serde_json::to_value(metrics).map_err(ReportingError::SerializationError)?;
 
-        serde_json::to_string_pretty(&metrics_json)
-            .map_err(ReportingError::SerializationError)
+        serde_json::to_string_pretty(&metrics_json).map_err(ReportingError::SerializationError)
     }
 }
 

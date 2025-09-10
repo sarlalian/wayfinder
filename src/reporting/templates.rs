@@ -53,13 +53,9 @@ impl ReportTemplateManager {
             .await
             .map_err(ReportingError::IoError)?;
 
-        let metadata = fs::metadata(path)
-            .await
-            .map_err(ReportingError::IoError)?;
+        let metadata = fs::metadata(path).await.map_err(ReportingError::IoError)?;
 
-        let last_modified = metadata
-            .modified()
-            .map_err(ReportingError::IoError)?;
+        let last_modified = metadata.modified().map_err(ReportingError::IoError)?;
 
         self.template_cache.insert(
             template_name.to_string(),
@@ -117,14 +113,10 @@ impl ReportTemplateManager {
             if let Some(file_path) = &cached.file_path {
                 let path = Path::new(file_path);
                 if path.exists() {
-                    let metadata = fs::metadata(path)
-                        .await
-                        .map_err(ReportingError::IoError)?;
+                    let metadata = fs::metadata(path).await.map_err(ReportingError::IoError)?;
 
-                    let file_modified: DateTime<Utc> = metadata
-                        .modified()
-                        .map_err(ReportingError::IoError)?
-                        .into();
+                    let file_modified: DateTime<Utc> =
+                        metadata.modified().map_err(ReportingError::IoError)?.into();
 
                     if file_modified > cached.last_modified {
                         templates_to_reload.push((name.clone(), file_path.clone()));

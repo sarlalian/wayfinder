@@ -69,7 +69,6 @@ pub enum NotificationConfig {
     },
 }
 
-
 impl Workflow {
     /// Parse workflow from YAML file
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {

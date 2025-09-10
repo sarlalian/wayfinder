@@ -98,10 +98,9 @@ impl TaskImplementation for ChecksumTask {
 
         // Execute checksum calculation in a blocking task
         let task_id_clone = task_id.clone();
-        let result = tokio::task::spawn_blocking(move || {
-            Self::calculate_checksum(&config, &task_id_clone)
-        })
-        .await;
+        let result =
+            tokio::task::spawn_blocking(move || Self::calculate_checksum(&config, &task_id_clone))
+                .await;
 
         match result {
             Ok(Ok(checksum_result)) => {
@@ -112,10 +111,8 @@ impl TaskImplementation for ChecksumTask {
 
                 // Write checksum to output file if specified
                 if let Some(output_path) = &output_path_clone {
-                    let checksum_content = format!(
-                        "{}  {}\n",
-                        checksum_result.checksum, input_path_clone
-                    );
+                    let checksum_content =
+                        format!("{}  {}\n", checksum_result.checksum, input_path_clone);
 
                     if let Err(e) = fs::write(output_path, &checksum_content).await {
                         let error_msg = format!("Failed to write checksum file: {}", e);
@@ -129,9 +126,13 @@ impl TaskImplementation for ChecksumTask {
 
                 // Add metadata
                 task_result.add_metadata("checksum".to_string(), checksum_result.checksum.clone());
-                task_result.add_metadata("algorithm".to_string(), checksum_result.algorithm.clone());
+                task_result
+                    .add_metadata("algorithm".to_string(), checksum_result.algorithm.clone());
                 task_result.add_metadata("input_path".to_string(), input_path_clone.clone());
-                task_result.add_metadata("file_size".to_string(), checksum_result.file_size.to_string());
+                task_result.add_metadata(
+                    "file_size".to_string(),
+                    checksum_result.file_size.to_string(),
+                );
                 task_result.add_metadata("base64_encoded".to_string(), base64_encode.to_string());
 
                 let output_message = format!(
@@ -216,12 +217,16 @@ struct ChecksumResult {
 impl ChecksumTask {
     fn calculate_checksum(config: &ChecksumConfig, task_id: &str) -> io::Result<ChecksumResult> {
         let input_path = Path::new(&config.input_path);
-        
+
         // Get file size for metadata
         let metadata = std::fs::metadata(input_path)?;
         let file_size = metadata.len();
 
-        debug!("Calculating checksum for: {} ({} bytes)", input_path.display(), file_size);
+        debug!(
+            "Calculating checksum for: {} ({} bytes)",
+            input_path.display(),
+            file_size
+        );
 
         let mut file = File::open(input_path)?;
         let mut buffer = Vec::new();

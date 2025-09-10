@@ -122,7 +122,11 @@ impl TemplateEngine {
     }
 
     /// Recursively resolve templates in JSON values
-    pub fn resolve_json_templates(&self, value: &JsonValue, context: &JsonValue) -> Result<JsonValue> {
+    pub fn resolve_json_templates(
+        &self,
+        value: &JsonValue,
+        context: &JsonValue,
+    ) -> Result<JsonValue> {
         match value {
             JsonValue::String(s) => {
                 let resolved = self

@@ -75,7 +75,6 @@ impl Default for Config {
     }
 }
 
-
 impl Default for SmtpConfig {
     fn default() -> Self {
         Self {
@@ -87,7 +86,6 @@ impl Default for SmtpConfig {
         }
     }
 }
-
 
 impl Default for LoggingConfig {
     fn default() -> Self {

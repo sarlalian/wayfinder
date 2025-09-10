@@ -36,13 +36,10 @@ impl StdoutWriter {
 #[async_trait]
 impl OutputWriter for StdoutWriter {
     async fn write(&self, content: &str, destination: &OutputDestination) -> Result<()> {
-        let config: StdoutWriterConfig =
-            destination
-                .get_config()
-                .unwrap_or(StdoutWriterConfig {
-                    colored: true,
-                    quiet: false,
-                });
+        let config: StdoutWriterConfig = destination.get_config().unwrap_or(StdoutWriterConfig {
+            colored: true,
+            quiet: false,
+        });
 
         if !config.quiet {
             if config.colored {

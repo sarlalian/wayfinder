@@ -104,10 +104,8 @@ impl TaskImplementation for CompressTask {
 
         // Execute compression in a blocking task
         let task_id_clone = task_id.clone();
-        let result = tokio::task::spawn_blocking(move || {
-            Self::compress_file(&config, &task_id_clone)
-        })
-        .await;
+        let result =
+            tokio::task::spawn_blocking(move || Self::compress_file(&config, &task_id_clone)).await;
 
         match result {
             Ok(Ok(compression_result)) => {
@@ -132,11 +130,26 @@ impl TaskImplementation for CompressTask {
                 // Add metadata
                 task_result.add_metadata("input_path".to_string(), input_path_clone.clone());
                 task_result.add_metadata("output_path".to_string(), output_path_clone.clone());
-                task_result.add_metadata("compression_type".to_string(), format!("{:?}", compression_type));
-                task_result.add_metadata("original_size".to_string(), compression_result.original_size.to_string());
-                task_result.add_metadata("compressed_size".to_string(), compression_result.compressed_size.to_string());
-                task_result.add_metadata("compression_ratio".to_string(), format!("{:.1}", compression_result.compression_ratio));
-                task_result.add_metadata("preserve_original".to_string(), preserve_original.to_string());
+                task_result.add_metadata(
+                    "compression_type".to_string(),
+                    format!("{:?}", compression_type),
+                );
+                task_result.add_metadata(
+                    "original_size".to_string(),
+                    compression_result.original_size.to_string(),
+                );
+                task_result.add_metadata(
+                    "compressed_size".to_string(),
+                    compression_result.compressed_size.to_string(),
+                );
+                task_result.add_metadata(
+                    "compression_ratio".to_string(),
+                    format!("{:.1}", compression_result.compression_ratio),
+                );
+                task_result.add_metadata(
+                    "preserve_original".to_string(),
+                    preserve_original.to_string(),
+                );
 
                 let output_message = format!(
                     "Successfully compressed {} to {} ({:.1}% reduction)",
@@ -265,7 +278,8 @@ impl CompressTask {
         match config.compression_type {
             CompressionType::Bzip2 => {
                 let level = config.compression_level.unwrap_or(6);
-                let mut compressor = bzip2::write::BzEncoder::new(output_file, bzip2::Compression::new(level));
+                let mut compressor =
+                    bzip2::write::BzEncoder::new(output_file, bzip2::Compression::new(level));
                 std::io::copy(&mut reader, &mut compressor)?;
                 compressor.finish()?;
             }
@@ -393,8 +407,18 @@ mod tests {
         assert!(result.metadata.contains_key("compression_ratio"));
 
         // Check that compression actually reduced file size
-        let original_size: u64 = result.metadata.get("original_size").unwrap().parse().unwrap();
-        let compressed_size: u64 = result.metadata.get("compressed_size").unwrap().parse().unwrap();
+        let original_size: u64 = result
+            .metadata
+            .get("original_size")
+            .unwrap()
+            .parse()
+            .unwrap();
+        let compressed_size: u64 = result
+            .metadata
+            .get("compressed_size")
+            .unwrap()
+            .parse()
+            .unwrap();
         assert!(compressed_size < original_size);
     }
 

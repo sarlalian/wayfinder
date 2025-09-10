@@ -24,7 +24,7 @@ pub struct WorkflowValidator {
 
 impl WorkflowValidator {
     pub fn new() -> Self {
-        Self { 
+        Self {
             strict_mode: false,
             task_registry: None,
         }
@@ -139,7 +139,11 @@ impl WorkflowValidator {
     }
 
     /// Validate a single task configuration
-    fn validate_single_task(&self, task_id: &str, task_config: &TaskConfig) -> std::result::Result<(), ValidationError> {
+    fn validate_single_task(
+        &self,
+        task_id: &str,
+        task_config: &TaskConfig,
+    ) -> std::result::Result<(), ValidationError> {
         // Validate basic structure
         if task_config.config.is_null() {
             return Err(ValidationError::InvalidTaskConfig {
@@ -153,7 +157,7 @@ impl WorkflowValidator {
             let task_type_str = match task_config.task_type {
                 super::task::TaskType::Command => "command",
                 super::task::TaskType::Compress => "compress",
-                super::task::TaskType::Decompress => "decompress", 
+                super::task::TaskType::Decompress => "decompress",
                 super::task::TaskType::Checksum => "checksum",
                 super::task::TaskType::ValidateChecksum => "validate_checksum",
                 super::task::TaskType::S3Upload => "s3_upload",

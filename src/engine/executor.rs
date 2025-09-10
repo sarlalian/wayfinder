@@ -26,8 +26,7 @@ impl TaskExecutor {
         let scheduler =
             TaskScheduler::new(max_concurrent).with_default_timeout(Duration::from_secs(3600));
 
-        let template_engine =
-            TemplateEngine::new().map_err(ExecutionError::TemplateError)?;
+        let template_engine = TemplateEngine::new().map_err(ExecutionError::TemplateError)?;
 
         let task_registry = crate::tasks::TaskRegistry::new();
 
@@ -216,18 +215,19 @@ impl TaskExecutor {
 
         // Execute the batch by iterating through tasks
         let mut results = Vec::new();
-        
+
         for scheduled_task in scheduled_tasks {
             let task_config = workflow.tasks.get(&scheduled_task.task_id).unwrap().clone();
-            
+
             let result = Self::execute_single_task(
-                scheduled_task, 
-                task_config, 
-                context.clone(), 
-                &self.template_engine, 
-                &self.task_registry
-            ).await;
-            
+                scheduled_task,
+                task_config,
+                context.clone(),
+                &self.template_engine,
+                &self.task_registry,
+            )
+            .await;
+
             results.push(result);
         }
 
@@ -287,19 +287,22 @@ impl TaskExecutor {
             Ok(json_context) => {
                 match template_engine.resolve_json_templates(
                     &serde_json::to_value(&task_config.config).unwrap(),
-                    &json_context
+                    &json_context,
                 ) {
-                    Ok(resolved_config) => {
-                        match serde_yaml::to_value(&resolved_config) {
-                            Ok(yaml_config) => (json_context, yaml_config),
-                            Err(e) => {
-                                let error_msg = format!("Failed to convert resolved config to YAML: {}", e);
-                                result.mark_completed(TaskStatus::Failed, None, Some(error_msg.clone()));
-                                error!("Task {} failed: {}", scheduled_task.task_id, error_msg);
-                                return result;
-                            }
+                    Ok(resolved_config) => match serde_yaml::to_value(&resolved_config) {
+                        Ok(yaml_config) => (json_context, yaml_config),
+                        Err(e) => {
+                            let error_msg =
+                                format!("Failed to convert resolved config to YAML: {}", e);
+                            result.mark_completed(
+                                TaskStatus::Failed,
+                                None,
+                                Some(error_msg.clone()),
+                            );
+                            error!("Task {} failed: {}", scheduled_task.task_id, error_msg);
+                            return result;
                         }
-                    }
+                    },
                     Err(e) => {
                         let error_msg = format!("Failed to resolve task config templates: {}", e);
                         result.mark_completed(TaskStatus::Failed, None, Some(error_msg.clone()));
@@ -317,12 +320,15 @@ impl TaskExecutor {
         };
 
         // Execute using task registry
-        match task_registry.execute_task(
-            scheduled_task.task_id.clone(),
-            task_type_str,
-            resolved_yaml_config,
-            context.clone(),
-        ).await {
+        match task_registry
+            .execute_task(
+                scheduled_task.task_id.clone(),
+                task_type_str,
+                resolved_yaml_config,
+                context.clone(),
+            )
+            .await
+        {
             Ok(task_result) => {
                 // Use the task result directly
                 result = task_result;
@@ -332,7 +338,7 @@ impl TaskExecutor {
                     .get_task_state(&scheduled_task.task_id)
                     .await
                     .unwrap_or_else(|| TaskState::new(scheduled_task.task_id.clone()));
-                
+
                 match result.status {
                     TaskStatus::Success => {
                         final_task_state.mark_completed(TaskStatus::Success, None);
@@ -344,10 +350,11 @@ impl TaskExecutor {
                     }
                     _ => {
                         // For other statuses, just update the state
-                        final_task_state.mark_completed(result.status.clone(), result.error.clone());
+                        final_task_state
+                            .mark_completed(result.status.clone(), result.error.clone());
                     }
                 }
-                
+
                 context
                     .set_task_state(scheduled_task.task_id.clone(), final_task_state)
                     .await;
@@ -372,7 +379,6 @@ impl TaskExecutor {
 
         result
     }
-
 
     /// Evaluate a conditional expression
     async fn evaluate_condition(
@@ -426,17 +432,20 @@ impl TaskExecutor {
             .with_task_registry(task_registry)
             .with_strict_mode(true);
 
-        let validation_report = validator.validate(workflow)
-            .map_err(|e| ExecutionError::ValidationError {
-                message: format!("Workflow validation failed: {}", e),
-            })?;
+        let validation_report =
+            validator
+                .validate(workflow)
+                .map_err(|e| ExecutionError::ValidationError {
+                    message: format!("Workflow validation failed: {}", e),
+                })?;
 
         if !validation_report.is_valid {
-            let error_messages: Vec<String> = validation_report.errors
+            let error_messages: Vec<String> = validation_report
+                .errors
                 .iter()
                 .map(|e| e.to_string())
                 .collect();
-            
+
             return Err(ExecutionError::ValidationError {
                 message: format!("Workflow validation failed:\n{}", error_messages.join("\n")),
             });
