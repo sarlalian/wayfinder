@@ -6,6 +6,7 @@ pub mod command;
 pub mod compress;
 pub mod compression;
 pub mod email;
+pub mod file;
 pub mod s3;
 pub mod slack;
 pub mod template;
@@ -43,6 +44,7 @@ impl TaskRegistry {
         registry.register(Box::new(compress::CompressTask));
         registry.register(Box::new(checksum::ChecksumTask));
         registry.register(Box::new(compression::CompressionTask)); // Keep for backwards compatibility - rename to "archive"
+        registry.register(Box::new(file::FileTask));
         registry.register(Box::new(s3::S3Task));
         registry.register(Box::new(email::EmailTask));
         registry.register(Box::new(slack::SlackTask));
