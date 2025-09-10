@@ -1,0 +1,100 @@
+# Pre-commit hooks for Rust projects
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+repos:
+  # Rust formatting and linting
+  - repo: local
+    hooks:
+      # Format code with rustfmt
+      - id: rust-fmt
+        name: Rust fmt
+        entry: cargo fmt
+        language: system
+        files: \.rs$
+        args: ["--all", "--"]
+        pass_filenames: false
+
+      # Run Clippy linter
+      - id: rust-clippy
+        name: Rust clippy
+        entry: cargo clippy
+        language: system
+        files: \.rs$
+        args: ["--all-targets", "--all-features", "--", "-D", "warnings"]
+        pass_filenames: false
+
+      # Check that code compiles
+      - id: rust-check
+        name: Rust check
+        entry: cargo check
+        language: system
+        files: \.rs$
+        args: ["--all-targets", "--all-features"]
+        pass_filenames: false
+
+      # Run tests
+  #      - id: rust-test
+  #        name: Rust test
+  #        entry: cargo test
+  #        language: system
+  #        files: \.rs$
+  #        args: ["--all-features"]
+  #        pass_filenames: false
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # Prevent giant files from being committed
+      - id: check-added-large-files
+        args: ["--maxkb=1000"]
+
+      # Check for files that would conflict in case-insensitive filesystems
+      - id: check-case-conflict
+
+      # Ensure that files have valid YAML syntax
+      - id: check-yaml
+        files: \.(yaml|yml)$
+
+      # Ensure that files have valid JSON syntax
+      - id: check-json
+        files: \.json$
+
+      # Check for merge conflicts
+      - id: check-merge-conflict
+
+      # Check that executables have shebangs
+      - id: check-executables-have-shebangs
+
+      # Don't allow private keys to be committed
+      - id: detect-private-key
+
+      # Make sure files end in a newline and only a newline
+      - id: end-of-file-fixer
+        exclude: \.rs$ # Let rustfmt handle Rust files
+
+      # Remove trailing whitespace
+      - id: trailing-whitespace
+        exclude: \.rs$ # Let rustfmt handle Rust files
+
+  # Additional Rust-specific hooks using doublify/pre-commit-rust
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0
+    hooks:
+      # Run cargo fmt --check to ensure formatting
+      - id: fmt
+        name: Rust fmt check
+        args: ["--all", "--", "--check"]
+
+      # Run clippy with warnings as errors
+      - id: clippy
+        name: Rust clippy check
+        args: ["--all-targets", "--all-features", "--", "-D", "warnings"]
+
+# Configuration for specific hooks
+fail_fast: false # Don't stop on first failure, run all hooks
+
+# Default language version (if needed)
+default_language_version:
+  python: python3
