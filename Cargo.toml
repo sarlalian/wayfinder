@@ -55,9 +55,9 @@ hex = "0.4"
 base64 = "0.21"
 
 # AWS SDK
-aws-config = "0.55"
-aws-sdk-s3 = "0.28"
-aws-sdk-ses = "0.28"
+aws-config = "1.8"
+aws-sdk-s3 = "1.105"
+aws-sdk-ses = "1.86"
 
 # HTTP client
 reqwest = { version = "0.11", features = ["json"] }
