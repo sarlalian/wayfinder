@@ -25,11 +25,11 @@ jobs:
   security-audit:
     name: Security Audit
     runs-on: ubuntu-latest
-    
+
     outputs:
       vulnerabilities_found: ${{ steps.audit.outputs.vulnerabilities_found }}
       audit_results: ${{ steps.audit.outputs.audit_results }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -54,12 +54,12 @@ jobs:
           else
             echo "vulnerabilities_found=true" >> $GITHUB_OUTPUT
           fi
-          
+
           # Process audit results
           if [ -f audit_results.json ]; then
             echo "Audit results found"
             cat audit_results.json | jq -r '.vulnerabilities[] | "- \(.advisory.title) (\(.advisory.id)): \(.advisory.description)"' > audit_summary.txt || echo "No vulnerabilities in JSON format"
-            
+
             if [ -s audit_summary.txt ]; then
               echo "audit_results<<EOF" >> $GITHUB_OUTPUT
               cat audit_summary.txt >> $GITHUB_OUTPUT
@@ -83,11 +83,11 @@ jobs:
   dependency-check:
     name: Dependency Analysis
     runs-on: ubuntu-latest
-    
+
     outputs:
       updates_available: ${{ steps.outdated.outputs.updates_available }}
       update_summary: ${{ steps.outdated.outputs.update_summary }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -110,10 +110,10 @@ jobs:
           if cargo outdated --format json > outdated.json 2>/dev/null; then
             # Check if there are any outdated dependencies
             OUTDATED_COUNT=$(cat outdated.json | jq '.crates | length')
-            
+
             if [ "$OUTDATED_COUNT" -gt 0 ]; then
               echo "updates_available=true" >> $GITHUB_OUTPUT
-              
+
               # Generate summary
               echo "update_summary<<EOF" >> $GITHUB_OUTPUT
               echo "Found $OUTDATED_COUNT outdated dependencies:" >> $GITHUB_OUTPUT
@@ -149,7 +149,7 @@ jobs:
     if: |
       (github.event_name == 'schedule') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.update_type != 'audit-only')
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -176,7 +176,7 @@ jobs:
             # Default for scheduled runs
             UPDATE_TYPE="patch-updates"
           fi
-          
+
           echo "update_type=$UPDATE_TYPE" >> $GITHUB_OUTPUT
           echo "Selected update type: $UPDATE_TYPE"
 
@@ -207,7 +207,7 @@ jobs:
           echo "Running tests to verify updates..."
           cargo check --all-targets
           cargo test --all --verbose
-          
+
           # Test examples to ensure they still work
           cargo build --release
           ./target/release/wayfinder run examples/simple_workflow.yaml || echo "Simple workflow test failed"
@@ -221,7 +221,7 @@ jobs:
           else
             echo "changes_detected=true" >> $GITHUB_OUTPUT
             echo "Dependency changes detected"
-            
+
             # Generate change summary
             echo "change_summary<<EOF" >> $GITHUB_OUTPUT
             echo "## Dependency Updates" >> $GITHUB_OUTPUT
@@ -281,7 +281,7 @@ jobs:
 
             ---
             🤖 This PR was created automatically by the dependency management workflow.
-            
+
             🤖 Generated with [Claude Code](https://claude.ai/code)
 
             Co-Authored-By: Claude <noreply@anthropic.com>
@@ -298,38 +298,38 @@ jobs:
     needs: [security-audit, dependency-check, dependency-updates]
     runs-on: ubuntu-latest
     if: always()
-    
+
     steps:
       - name: Generate Summary Report
         run: |
           echo "## Dependency Management Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           echo "### Security Audit" >> $GITHUB_STEP_SUMMARY
           echo "- **Vulnerabilities Found**: ${{ needs.security-audit.outputs.vulnerabilities_found }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Results**: ${{ needs.security-audit.outputs.audit_results }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           echo "### Dependency Analysis" >> $GITHUB_STEP_SUMMARY
           echo "- **Updates Available**: ${{ needs.dependency-check.outputs.updates_available }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Summary**: ${{ needs.dependency-check.outputs.update_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "${{ needs.dependency-updates.result }}" != "skipped" ]; then
             echo "### Automated Updates" >> $GITHUB_STEP_SUMMARY
             echo "- **Status**: ${{ needs.dependency-updates.result }}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "### Recommendations" >> $GITHUB_STEP_SUMMARY
           if [ "${{ needs.security-audit.outputs.vulnerabilities_found }}" = "true" ]; then
             echo "- 🚨 **Action Required**: Security vulnerabilities detected - review and update immediately" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           if [ "${{ needs.dependency-check.outputs.updates_available }}" = "true" ]; then
             echo "- 📦 **Consider**: Dependency updates are available - review for compatibility" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           if [ "${{ needs.security-audit.outputs.vulnerabilities_found }}" = "false" ] && [ "${{ needs.dependency-check.outputs.updates_available }}" = "false" ]; then
             echo "- ✅ **All Good**: No security issues or outdated dependencies detected" >> $GITHUB_STEP_SUMMARY
           fi

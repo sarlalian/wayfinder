@@ -20,9 +20,9 @@
 
 ### What changed?
 <!-- List the main changes made -->
-- 
-- 
-- 
+-
+-
+-
 
 ### Why was this change needed?
 <!-- Explain the motivation behind these changes -->

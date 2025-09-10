@@ -23,7 +23,7 @@ jobs:
     outputs:
       version: ${{ steps.get_version.outputs.version }}
       is_prerelease: ${{ steps.get_version.outputs.is_prerelease }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -39,14 +39,14 @@ jobs:
             VERSION=${GITHUB_REF#refs/tags/}
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          
+
           # Check if this is a prerelease (contains alpha, beta, rc, etc.)
           if [[ $VERSION =~ -(alpha|beta|rc|pre) ]]; then
             echo "is_prerelease=true" >> $GITHUB_OUTPUT
           else
             echo "is_prerelease=false" >> $GITHUB_OUTPUT
           fi
-          
+
           echo "Release version: $VERSION"
 
       - name: Validate version format
@@ -78,10 +78,10 @@ jobs:
         run: |
           CARGO_VERSION="v$(grep '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')"
           TAG_VERSION="${{ steps.get_version.outputs.version }}"
-          
+
           echo "Cargo.toml version: $CARGO_VERSION"
           echo "Git tag version: $TAG_VERSION"
-          
+
           if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
             echo "Error: Version mismatch between Cargo.toml ($CARGO_VERSION) and git tag ($TAG_VERSION)"
             exit 1
@@ -125,7 +125,7 @@ jobs:
             archive: zip
 
     runs-on: ${{ matrix.os }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -145,12 +145,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential pkg-config
-          
+
           # Install musl tools for musl targets
           if [[ "${{ matrix.target }}" == *"musl"* ]]; then
             sudo apt-get install -y musl-tools
           fi
-          
+
           # Install cross-compilation tools for ARM64
           if [[ "${{ matrix.target }}" == "aarch64-"* ]]; then
             sudo apt-get install -y gcc-aarch64-linux-gnu
@@ -169,26 +169,26 @@ jobs:
         run: |
           VERSION="${{ needs.validate-release.outputs.version }}"
           ASSET_NAME="${{ matrix.name }}-$VERSION"
-          
+
           # Create staging directory
           mkdir -p "staging/$ASSET_NAME"
-          
+
           # Copy binary
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             cp "target/${{ matrix.target }}/release/wayfinder.exe" "staging/$ASSET_NAME/"
           else
             cp "target/${{ matrix.target }}/release/wayfinder" "staging/$ASSET_NAME/"
           fi
-          
+
           # Copy additional files
           cp README.md "staging/$ASSET_NAME/" 2>/dev/null || echo "README.md not found"
           cp -r examples "staging/$ASSET_NAME/" 2>/dev/null || echo "examples directory not found"
-          
+
           # Create archive
           cd staging
           tar -czf "../$ASSET_NAME.tar.gz" "$ASSET_NAME"
           cd ..
-          
+
           echo "ASSET_PATH=$ASSET_NAME.tar.gz" >> $GITHUB_ENV
           echo "ASSET_NAME=$ASSET_NAME.tar.gz" >> $GITHUB_ENV
 
@@ -198,13 +198,13 @@ jobs:
         run: |
           $VERSION = "${{ needs.validate-release.outputs.version }}"
           $ASSET_NAME = "${{ matrix.name }}-$VERSION"
-          
+
           # Create staging directory
           New-Item -ItemType Directory -Path "staging\$ASSET_NAME" -Force
-          
+
           # Copy binary
           Copy-Item "target\${{ matrix.target }}\release\wayfinder.exe" "staging\$ASSET_NAME\"
-          
+
           # Copy additional files
           if (Test-Path "README.md") {
               Copy-Item "README.md" "staging\$ASSET_NAME\"
@@ -212,10 +212,10 @@ jobs:
           if (Test-Path "examples") {
               Copy-Item "examples" "staging\$ASSET_NAME\" -Recurse
           }
-          
+
           # Create zip archive
           Compress-Archive -Path "staging\$ASSET_NAME" -DestinationPath "$ASSET_NAME.zip"
-          
+
           echo "ASSET_PATH=$ASSET_NAME.zip" >> $env:GITHUB_ENV
           echo "ASSET_NAME=$ASSET_NAME.zip" >> $env:GITHUB_ENV
 
@@ -241,7 +241,7 @@ jobs:
     name: Create GitHub Release
     needs: [validate-release, build-release]
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -256,12 +256,12 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p release-assets
-          
+
           # Move all artifacts to release-assets directory
           find artifacts -name "*.tar.gz" -o -name "*.zip" -o -name "*.sha256" | while read file; do
             cp "$file" release-assets/
           done
-          
+
           # List all assets for verification
           echo "Release assets:"
           ls -la release-assets/
@@ -270,7 +270,7 @@ jobs:
         id: release_notes
         run: |
           VERSION="${{ needs.validate-release.outputs.version }}"
-          
+
           # Try to extract release notes from CHANGELOG.md if it exists
           if [ -f CHANGELOG.md ]; then
             # Extract section between current version and previous version
@@ -297,7 +297,7 @@ jobs:
           ### Full Changelog
           See commit history for detailed changes."
           fi
-          
+
           # Save to file for GitHub release
           echo "$NOTES" > release-notes.md
           echo "notes_file=release-notes.md" >> $GITHUB_OUTPUT
@@ -320,7 +320,7 @@ jobs:
     needs: [validate-release, create-release]
     runs-on: ubuntu-latest
     if: needs.validate-release.outputs.is_prerelease == 'false'
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -347,7 +347,7 @@ jobs:
     needs: [validate-release, create-release, publish-crate]
     runs-on: ubuntu-latest
     if: always()
-    
+
     steps:
       - name: Release Summary
         run: |
@@ -357,10 +357,10 @@ jobs:
           echo "- **Build Status**: ${{ needs.build-release.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Release Created**: ${{ needs.create-release.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Crates.io Published**: ${{ needs.publish-crate.result }}" >> $GITHUB_STEP_SUMMARY
-          
+
           echo "### Release Assets" >> $GITHUB_STEP_SUMMARY
           echo "- Linux (x64, x64-musl, ARM64)" >> $GITHUB_STEP_SUMMARY
           echo "- macOS (x64, ARM64)" >> $GITHUB_STEP_SUMMARY
           echo "- Windows (x64, ARM64)" >> $GITHUB_STEP_SUMMARY
-          
+
           echo "Release ${{ needs.validate-release.outputs.version }} completed successfully! 🎉"
