@@ -92,7 +92,7 @@ tasks:
       bucket: "{{variables.s3_bucket}}"
       operation: "upload"
       key: "{{variables.s3_path}}/{{timestamp '%Y%m%d'}}testdb.sql.bz2"
-      local_path: "./test/backups/{{variables.database_name}}-{{timestamp '%Y%m%d'}}.sql.bz2"
+      local_path: "./temp/backups/{{variables.database_name}}-{{timestamp '%Y%m%d'}}.sql.bz2"
     depends_on:
       - compress_file
     timeout: 600s
