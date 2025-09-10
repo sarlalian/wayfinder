@@ -52,7 +52,7 @@ walkdir = "2.4"
 sha2 = "0.10"
 md5 = "0.7"
 hex = "0.4"
-base64 = "0.21"
+base64 = "0.22"
 
 # AWS SDK
 aws-config = "0.55"
