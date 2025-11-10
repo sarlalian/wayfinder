@@ -10,7 +10,7 @@ license = "MIT"
 # CLI and configuration
 clap = { version = "4.4", features = ["derive", "env"] }
 anyhow = "1.0"
-thiserror = "1.0"
+thiserror = "2.0"
 
 # Async runtime
 tokio = { version = "1.0", features = ["full"] }
